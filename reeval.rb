@@ -151,15 +151,13 @@ class REEval < XChatRubyPlugin
 			if(3<words_eol.size)
 				sometext = words_eol[3].sub(/^:/,'')
 
-				if((matches = @RERE.match(sometext)) && (matches[1]))
-					# Check for "nick: s/foo/bar/"
-					nick = mynick
-					mynick = matches[1].sub(/: *$/, '')
-				elsif((matches = @TRRE.match(sometext)) && (matches[1]))
-					# Check for "nick: tr/bl/ah/"
-					nick = mynick
-					mynick = matches[1].sub(/: *$/, '')
-				end
+				[@RERE, @TRRE].each{ |expr|
+					if((matches = expr.match(sometext)) && (matches[1]))
+						nick = mynick
+						mynick = matches[1].sub(/: *$/, '')
+						break
+					end
+				}# Check for "nick: expression"
 
 				# Append channel name for (some) uniqueness
 				key = "#{mynick}|#{words[2]}"
