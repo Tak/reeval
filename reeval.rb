@@ -150,6 +150,7 @@ class REEval < XChatRubyPlugin
 			
 			if(3<words_eol.size)
 				sometext = words_eol[3].sub(/^:/,'')
+				puts(sometext)
 				if((matches = @RERE.match(sometext)) && (matches[1]))
 					# Check for "nick: s/foo/bar/"
 					nick = mynick
@@ -165,26 +166,57 @@ class REEval < XChatRubyPlugin
 				storekey = (nick) ? "#{nick}|#{words[2]}" : key
 				#puts("#{nick} #{mynick} #{key}")
 
-				if((@lines[key]) && (outtext = substitute(@lines[key], sometext)) && (outtext != sometext))
-				# If we have previous text for this user and this message was an effective substitution...
-					# Send converted response
-					#puts("Sending converted response: '#{outtext}'")
+				if(@lines[key])
+					# outtext = substitute(@lines[key], sometext)
+					outtext = sometext.split('|').inject(@lines[key]){ |input, expr|
+						puts("Applying #{expr} to #{input}")
+						substitute(input.strip(), expr.strip())
+					}# pipeline expressions
+					if(!outtext) then outtext = sometext; end
+				else
+					outtext = sometext
+				end
+
+				# Add latest line to db
+				#puts("Adding '#{sometext}' for #{key} (was: '#{@lines[storekey]}')")
+				if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext)) then @lines[storekey] = outtext; end
+
+				if(outtext != sometext)
 					if(nick)
 						command("SAY #{nick} thinks #{mynick} meant: #{outtext}")
 					else
 						command("SAY #{mynick} meant: #{outtext}")
 					end
-					# Store converted response for further replacement
-					@lines[storekey] = outtext
 
 					return XCHAT_EAT_ALL
-				elsif(!nick)
-					# Add latest line to db
-					#puts("Adding '#{sometext}' for #{key} (was: '#{@lines[storekey]}')")
-					if(!@RERE.match(sometext) && !@TRRE.match(sometext) && !@ACTION.match(sometext)) then @lines[storekey] = sometext; end
-				else
-					puts("Not storing #{sometext} for #{storekey}")
 				end
+
+
+
+
+
+				######### OLD #############
+
+				# if((@lines[key]) && (outtext = substitute(@lines[key], sometext)) && (outtext != sometext))
+				# # If we have previous text for this user and this message was an effective substitution...
+				# 	# Send converted response
+				# 	#puts("Sending converted response: '#{outtext}'")
+				# 	if(nick)
+				# 		command("SAY #{nick} thinks #{mynick} meant: #{outtext}")
+				# 	else
+				# 		command("SAY #{mynick} meant: #{outtext}")
+				# 	end
+				# 	# Store converted response for further replacement
+				# 	@lines[storekey] = outtext
+
+				# 	return XCHAT_EAT_ALL
+				# elsif(!nick)
+				# 	# Add latest line to db
+				# 	#puts("Adding '#{sometext}' for #{key} (was: '#{@lines[storekey]}')")
+				# 	if(!@RERE.match(sometext) && !@TRRE.match(sometext) && !@ACTION.match(sometext)) then @lines[storekey] = sometext; end
+				# else
+				# 	puts("Not storing #{sometext} for #{storekey}")
+				# end
 			end
 		rescue
 			puts("#{caller.first}: #{$!}")
