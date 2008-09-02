@@ -169,7 +169,7 @@ class REEval < XChatRubyPlugin
 						#puts("Applying #{expr} to #{input}")
 						substitute(input.strip(), expr.strip())
 					}# pipeline expressions
-					if(!outtext) then outtext = sometext; end
+					if(!outtext || outtext.strip() == @lines[key].strip()) then outtext = sometext; end
 				else
 					outtext = sometext
 				end
@@ -239,7 +239,7 @@ class REEval < XChatRubyPlugin
 			puts("#{caller.first}: #{$!}")
 		end
 
-		return nil
+		return origtext
 	end # substitute
 
 	# Gets the percentage value from a string
