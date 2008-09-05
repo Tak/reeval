@@ -233,7 +233,8 @@ class REEval < XChatRubyPlugin
 				end
 			elsif(trmatches = @TRRE.match(restring))
 			# If the string is a valid transposition
-				return origtext.tr(trmatches[2], trmatches[3])
+				if(0 > (percent = get_percent(trmatches[5]))) then percent = 100; end
+				return tr_rand(origtext, trmatches[2], trmatches[3], percent)
 			end
 		rescue
 			puts("#{caller.first}: #{$!}")
@@ -254,5 +255,15 @@ class REEval < XChatRubyPlugin
 		end
 
 		return -1
+	end
+
+	# Randomly transposes patterns in a string
+	# If this is brokeback, blame beanfootage
+	# * str is the source string
+	# * from is the input pattern of the transposition
+	# * to is the output pattern of the transposition
+	# * prob is the probability as an integer percentage
+	def tr_rand(str, from, to, prob)
+		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? x.tr(from, to) : x) }
 	end
 end # REEval
