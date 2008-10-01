@@ -97,6 +97,8 @@ class REEval < XChatRubyPlugin
 	# * param data Unused
 	# * returns XCHAT_EAT_NONE
 	def your_message(words, data)
+		rv = XCHAT_EAT_NONE
+
 		begin
 			# Don't catch the outgoing 'Joe meant: blah'
 			if(/^([^ ]+ thinks )?[^ ]+ meant:/.match(words[1]) || (0 < @exclude.select{ |item| item == get_info('channel') }.size)) then return XCHAT_EAT_NONE; end
@@ -114,12 +116,12 @@ class REEval < XChatRubyPlugin
 				}.strip()
 			}
 
-			process_message(newwords, words_eol, data)
+			rv = process_message(newwords, words_eol, data)
 		rescue
 			puts("#{caller.first}: #{$!}")
 		end
 
-		return XCHAT_EAT_NONE
+		return rv
 	end # your_message
 
 	# Processes an incoming server message
