@@ -1,13 +1,12 @@
 #!/usr/bin/env ruby
 
-include XChatRuby
+require 'shortbus'
 
 # XChat plugin to interpret replacement regexen
-class REEval < XChatRubyPlugin
-	include XChatRuby
-	
+class REEval < ShortBus
 	# Constructor
 	def initialize()
+		super
 		@lastmessage=''
 		@lines = {}
 		@RERE = /^([^ :]+: *)?s\/([^\/]*)\/([^\/]*)(\/([ginx]+|[0-9]{2}\%))?/
@@ -21,8 +20,8 @@ class REEval < XChatRubyPlugin
 		@hooks = []
 		hook_command( 'REEVAL', XCHAT_PRI_NORM, method( :enable), '')
 		hook_command( 'REEXCLUDE', XCHAT_PRI_NORM, method( :exclude), '')
-		hook_server( 'Disconnected', XCHAT_PRI_NORM, method( :disable), '')
-		hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler), '')
+		hook_server( 'Disconnected', XCHAT_PRI_NORM, method( :disable))
+		hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler))
 		puts('REEval loaded. Run /REEVAL to enable.')
 	end # initialize
 
@@ -37,7 +36,7 @@ class REEval < XChatRubyPlugin
 				disable()
 			end
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return XCHAT_EAT_ALL
@@ -54,7 +53,7 @@ class REEval < XChatRubyPlugin
 				puts('REEval disabled.')
 			end
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return XCHAT_EAT_ALL
@@ -67,7 +66,7 @@ class REEval < XChatRubyPlugin
 				disable()
 			end
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return XCHAT_EAT_NONE
@@ -85,7 +84,7 @@ class REEval < XChatRubyPlugin
 				end
 			}
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return XCHAT_EAT_ALL
@@ -118,7 +117,7 @@ class REEval < XChatRubyPlugin
 
 			rv = process_message(newwords, words_eol, data)
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return rv
@@ -191,7 +190,7 @@ class REEval < XChatRubyPlugin
 				end
 			end
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return XCHAT_EAT_NONE
@@ -239,7 +238,7 @@ class REEval < XChatRubyPlugin
 				return tr_rand(origtext, trmatches[2], trmatches[3], percent)
 			end
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return origtext
@@ -253,7 +252,7 @@ class REEval < XChatRubyPlugin
 				return str.strip()[0,2].to_i()
 			end
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return -1
@@ -269,3 +268,8 @@ class REEval < XChatRubyPlugin
 		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? x.tr(from, to) : x) }
 	end
 end # REEval
+
+if(__FILE__ == $0)
+	blah = REEval.new()
+	blah.run()
+end
