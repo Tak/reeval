@@ -154,7 +154,7 @@ class REEval < ShortBus
 			if(3<words_eol.size)
 				sometext = words_eol[3].sub(/^:/,'')
 
-				[@RERE, @TRRE].each{ |expr|
+				[@RERE, @TRRE, @PARTIAL].each{ |expr|
 					if((matches = expr.match(sometext)) && (matches[1]))
 						nick = mynick
 						mynick = matches[1].sub(/: *$/, '')
@@ -179,7 +179,7 @@ class REEval < ShortBus
 
 				# Add latest line to db
 				#puts("Adding '#{sometext}' for #{key} (was: '#{@lines[storekey]}')")
-				if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext)) then @lines[storekey] = outtext; end
+				if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext)) then @lines[storekey] = outtext; end
 
 				if(outtext != sometext)
 					if(nick)
@@ -239,7 +239,8 @@ class REEval < ShortBus
 				if(0 > (percent = get_percent(trmatches[6]))) then percent = 100; end
 				return tr_rand(origtext, trmatches[3], trmatches[4], percent)
 			elsif((partial = @PARTIAL.match(restring)) && recurse)
-				return substitute(origtext, restring + partial[3], false)
+				# puts("Recursing to #{restring + partial[3].to_s()}")
+				return substitute(origtext, restring + partial[3].to_s(), false)
 			# else
 			# 	puts("No match for #{restring}")
 			end
