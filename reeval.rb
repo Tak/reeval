@@ -9,8 +9,10 @@ class REEval < ShortBus
 		super
 		@lastmessage=''
 		@lines = {}
-		@RERE = /^([^ :]+: *)?s\/([^\/]*)\/([^\/]*)(\/([ginx]+|[0-9]{2}\%))?/
-		@TRRE = /^([^ :]+: *)?tr\/([^\/]*)\/([^\/]*)(\/([0-9]{2}\%))?/
+		# @RERE = /^([^ :]+: *)?s(.)([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))?/
+		@RERE = /^([^ :]+: *)?s([^\w])([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))$/
+		@TRRE = /^([^ :]+: *)?tr([^\w])([^\2]*)\2([^\2]*)(\2([0-9]{2}\%)?)$/
+		@PARTIAL = /^([^ :]+: *)?(s|tr)([^\w])/
 		@ACTION = /^\001ACTION.*\001/
 		@REOPTIONS = {	'i' => Regexp::IGNORECASE,
 				'n' => Regexp::MULTILINE,
@@ -186,7 +188,7 @@ class REEval < ShortBus
 						command("SAY #{mynick} meant: #{outtext}")
 					end
 
-					return XCHAT_EAT_ALL
+					return XCHAT_EAT_NONE
 				end
 			end
 		rescue
@@ -201,22 +203,22 @@ class REEval < ShortBus
 	# * origtext is the text to be manipulated
 	# * restring is a string representing the entire replacement string 
 	# * (e.g. 's/blah(foo)bar/baz\1zip/')
-	def substitute(origtext, restring)
+	def substitute(origtext, restring, recurse=true)
 		begin
 			if(rematches = @RERE.match(restring))
 			# If the string is a valid replacement...
 				# Build options var from trailing characters
 				options = @REOPTIONS.inject(0){ |val, pair|
-					(rematches[5] && rematches[5].include?(pair[0])) ? val | pair[1] : val
+					(rematches[6] && rematches[6].include?(pair[0])) ? val | pair[1] : val
 				}
 
-				subex = Regexp.compile(rematches[2], options)
+				subex = Regexp.compile(rematches[3], options)
 				if(foo = subex.match(origtext))
 				# Only process replacements that actually match something
 					#puts(foo.inspect())
 					# if(rematches[5]) then puts("Suffix #{rematches[5]}"); end
 
-					if(0 < (percent = get_percent(rematches[5])))
+					if(0 < (percent = get_percent(rematches[6])))
 					# if(rematches[5] && rematches[5].strip()[2,1] == '%')
 						#Stochastic crap
 						# puts("Using #{percent}%")
@@ -224,18 +226,22 @@ class REEval < ShortBus
 						return origtext.gsub(subex){ |match|
 							blah = rand(101)
 							# puts("Randomly drew #{blah}: #{(blah < percent) ? '' : 'not '}replacing")
-							((blah < percent) ? match.sub(subex, rematches[3]) : match)
+							((blah < percent) ? match.sub(subex, rematches[4]) : match)
 						}
 					else
-						return ((rematches[5] && rematches[5].include?('g')) ? 
-							origtext.gsub(subex, rematches[3]) : 
-							origtext.sub(subex, rematches[3]))
+						return ((rematches[6] && rematches[6].include?('g')) ? 
+							origtext.gsub(subex, rematches[4]) : 
+							origtext.sub(subex, rematches[4]))
 					end
 				end
 			elsif(trmatches = @TRRE.match(restring))
 			# If the string is a valid transposition
-				if(0 > (percent = get_percent(trmatches[5]))) then percent = 100; end
-				return tr_rand(origtext, trmatches[2], trmatches[3], percent)
+				if(0 > (percent = get_percent(trmatches[6]))) then percent = 100; end
+				return tr_rand(origtext, trmatches[3], trmatches[4], percent)
+			elsif((partial = @PARTIAL.match(restring)) && recurse)
+				return substitute(origtext, restring + partial[3], false)
+			# else
+			# 	puts("No match for #{restring}")
 			end
 		rescue
 			# puts("#{caller.first}: #{$!}")
