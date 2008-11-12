@@ -1,0 +1,91 @@
+REEval User's Manuel
+
+1.  Introduction
+
+Are the asshands getting you down?  Do you feel like an idiot because
+everything you type looks like you just smashed your forehead against the
+keyboard?  Or maybe you type fine and you just want to reveal the true
+feelings of the people in the channel.  Then REEval is for you, or for
+someone in the channel to have running at least.
+
+2.  Usage
+
+2.1 Asshands
+
+Asshands is when you type with your ass rather than your fingers.  Common
+symptoms are misspellings of even the simplest of words.  Or using the wrong
+word altogether.  Mistakes such as :
+
+<jcopenha> I think I'm write
+<Hogshead> beuno!
+<ledge> beanfootage: your welcome
+
+Now.  All of these are embarrassing and there is no taking it back.  But you
+might be able to save some face if you fix it with a regex.
+
+The most common usage of REEval is to fix your own asshands.  After typing
+something like
+
+"I think I'm write"
+if you next say "s/write/right/" the person running REEval will spit out
+"jcopenha meant to say: I think I'm right"
+
+See?  Quick and easy.  Just a couple of things to remember about the regex:
+2.1.0  The regex always applies to the last thing you said.  You can't change
+       something to said 3 hours ago.  Don't try.
+2.1.1  It is case sensitive.  "Write" will not match "write"  so be careful
+       not to asshand your regex.  You can add a "/i" at the end if you want
+       case insensitive matching.
+2.1.2  "/g" does work for global replacements.  This leads to horrendous
+       statements like "s/\w/buffalo /g" => "buffalo buffalo buffalo buffalo".
+       Which usually results in a quick boot to the head from Hogshead.
+2.1.3  The usual metachars work , ., .*, ?, \w, etc.  For backslashes there is
+       some strange 2.5 escaping rule that I can't remember but you can do
+       something like "s/\\/\//"  I just don't remember how.
+2.1.4  Back-referencing works.  "s/(\w+)(\w+)/\2\1" will reverse the order of
+       words.  And "s/right/not \&/" will print "not right".  \& refers to
+       the entire match.
+2.1.5  REEval uses ruby-style regular expressions.
+2.1.6  An often requested regex feature, that so far only REEval implements,
+       is stochastic replacement. given the word "color" you can
+       use "s/o/ou/50%" which means each "o" has a 50% chance of being replaced
+       with "ou".  So you could get any of the following
+       "color","coulor","colour","coulour".  It's very useful for britifiying
+       words and for adding unnecessary commas.
+
+2.2  Rewriting what other people say
+
+This is where the real fun comes in.  You KNOW what the other person meant
+to say.  So why not fix it for them?
+
+<JasonBox>  I like Ponies!
+<jcopenha> JasonBox: s/.*/Bueno!/
+<Tak> jcopenha thinks JasonBox meant: Bueno!
+
+The important part of this is that you have to address the person you want
+to correct.  And you better address them correctly, tak won't match Tak.
+Stupid nick case sensitive script.  And again, the regex works on the very
+last thing they said.  So you best be quick.
+
+<JasonBox> I want a pony.
+<JasonBox> beanfootage is a pony
+<beanfootage> JasonBox: s/pony/dick/
+<Tak> beanfootage thinks JasonBox meant: beanfootage is a dick
+<beanfootage> damn.
+* ledge has kicked beanfootage (FAIL)
+
+See?  beanfootage was too slow.  He failed.
+
+Once you've corrected something  Then someone can further correct the statement
+by addressing YOU with a regex
+
+<JasonBox>  I like Ponies!
+<jcopenha> JasonBox: s/.*/Bueno!/
+<Tak> jcopenha thinks JasonBox meant: Bueno!
+<ledge> jcopenha: s/Bueno!/cry cry give up \?/
+<Tak> ledge thinks jcopenha meant: cry cry give up Bueno!
+
+
+See that.  Ledge addresses his regex to jcopenha.  Even though Tak said it.
+That's just how it works, and once you've mastered this you've learned all
+you can about REEval.
