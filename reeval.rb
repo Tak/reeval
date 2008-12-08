@@ -236,7 +236,7 @@ class REEval < ShortBus
 				end
 			elsif(trmatches = @TRRE.match(restring))
 			# If the string is a valid transposition
-				if(0 > (percent = get_percent(trmatches[6]))) then percent = 100; end
+				if(0 > (percent = get_percent(trmatches[6]))) then percent = 1000; end
 				return tr_rand(origtext, trmatches[3], trmatches[4], percent)
 			elsif((partial = @PARTIAL.match(restring)) && recurse)
 				# puts("Recursing to #{restring + partial[3].to_s()}")
