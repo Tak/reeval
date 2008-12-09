@@ -1,0 +1,3 @@
+Add kick message replacement.
+Add message buffering (e.g. 1s/foo/bar/ would replace foo with bar in the message before the previous).
+Add predictive replacement (e.g. -1s/foo/bar/ will wait and replace foo with bar in the next message).
