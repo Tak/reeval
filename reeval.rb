@@ -11,9 +11,9 @@ class REEval < ShortBus
 		@lastmessage=''
 		@lines = {}
 		# @RERE = /^([^ :]+: *)?s(.)([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))?/
-		@RERE = /^([^ :]+: *)?([-\d]*)?s([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
-		@TRRE = /^([^ :]+: *)?([-\d]*)?tr([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
-		@PARTIAL = /^([^ :]+: *)?([-\d]*)?(s|tr)([^\w])/
+		@RERE = /^([^ :]+: *)?(-?\d*)?s([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
+		@TRRE = /^([^ :]+: *)?(-?\d*)?tr([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
+		@PARTIAL = /^([^ :]+: *)?(-?\d*)?(s|tr)([^\w])/
 		@ACTION = /^\001ACTION.*\001/
 		@REOPTIONS = {	'i' => Regexp::IGNORECASE,
 				'n' => Regexp::MULTILINE,
@@ -157,9 +157,13 @@ class REEval < ShortBus
 				sometext = words_eol[3].sub(/^:/,'')
 
 				[@RERE, @TRRE, @PARTIAL].each{ |expr|
-					if((matches = expr.match(sometext)) && (matches[1]))
-						nick = mynick
-						mynick = matches[1].sub(/: *$/, '')
+					if(matches = expr.match(sometext))
+						if(matches[1])
+							nick = mynick
+							mynick = matches[1].sub(/: *$/, '')
+						end
+						if(matches[2])
+						end
 						break
 					end
 				}# Check for "nick: expression"
