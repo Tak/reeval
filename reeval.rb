@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'shortbus'
+require 'fixedqueue'
 
 # XChat plugin to interpret replacement regexen
 class REEval < ShortBus
@@ -10,14 +11,15 @@ class REEval < ShortBus
 		@lastmessage=''
 		@lines = {}
 		# @RERE = /^([^ :]+: *)?s(.)([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))?/
-		@RERE = /^([^ :]+: *)?s([^\w])([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))$/
-		@TRRE = /^([^ :]+: *)?tr([^\w])([^\2]*)\2([^\2]*)(\2([0-9]{2}\%)?)$/
-		@PARTIAL = /^([^ :]+: *)?(s|tr)([^\w])/
+		@RERE = /^([^ :]+: *)?(\d*)?s([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
+		@TRRE = /^([^ :]+: *)?(\d*)?tr([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
+		@PARTIAL = /^([^ :]+: *)?(\d*)?(s|tr)([^\w])/
 		@ACTION = /^\001ACTION.*\001/
 		@REOPTIONS = {	'i' => Regexp::IGNORECASE,
 				'n' => Regexp::MULTILINE,
 				'x' => Regexp::EXTENDED
 				}
+		@NOMINAL_SIZE = 5
 		@exclude = []
 		@hooks = []
 		hook_command( 'REEVAL', XCHAT_PRI_NORM, method( :enable), '')
@@ -209,16 +211,16 @@ class REEval < ShortBus
 			# If the string is a valid replacement...
 				# Build options var from trailing characters
 				options = @REOPTIONS.inject(0){ |val, pair|
-					(rematches[6] && rematches[6].include?(pair[0])) ? val | pair[1] : val
+					(rematches[7] && rematches[7].include?(pair[0])) ? val | pair[1] : val
 				}
 
-				subex = Regexp.compile(rematches[3], options)
+				subex = Regexp.compile(rematches[4], options)
 				if(foo = subex.match(origtext))
 				# Only process replacements that actually match something
 					#puts(foo.inspect())
 					# if(rematches[5]) then puts("Suffix #{rematches[5]}"); end
 
-					if(0 < (percent = get_percent(rematches[6])))
+					if(0 < (percent = get_percent(rematches[7])))
 					# if(rematches[5] && rematches[5].strip()[2,1] == '%')
 						#Stochastic crap
 						# puts("Using #{percent}%")
@@ -226,21 +228,21 @@ class REEval < ShortBus
 						return origtext.gsub(subex){ |match|
 							blah = rand(101)
 							# puts("Randomly drew #{blah}: #{(blah < percent) ? '' : 'not '}replacing")
-							((blah < percent) ? match.sub(subex, rematches[4]) : match)
+							((blah < percent) ? match.sub(subex, rematches[5]) : match)
 						}
 					else
-						return ((rematches[6] && rematches[6].include?('g')) ? 
-							origtext.gsub(subex, rematches[4]) : 
-							origtext.sub(subex, rematches[4]))
+						return ((rematches[7] && rematches[7].include?('g')) ? 
+							origtext.gsub(subex, rematches[5]) : 
+							origtext.sub(subex, rematches[5]))
 					end
 				end
 			elsif(trmatches = @TRRE.match(restring))
 			# If the string is a valid transposition
-				if(0 > (percent = get_percent(trmatches[6]))) then percent = 1000; end
-				return tr_rand(origtext, trmatches[3], trmatches[4], percent)
+				if(0 > (percent = get_percent(trmatches[7]))) then percent = 1000; end
+				return tr_rand(origtext, trmatches[4], trmatches[5], percent)
 			elsif((partial = @PARTIAL.match(restring)) && recurse)
 				# puts("Recursing to #{restring + partial[3].to_s()}")
-				return substitute(origtext, restring + partial[3].to_s(), false)
+				return substitute(origtext, restring + partial[4].to_s(), false)
 			# else
 			# 	puts("No match for #{restring}")
 			end
