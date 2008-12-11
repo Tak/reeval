@@ -66,7 +66,7 @@ class REEval < ShortBus
 	# Check for disconnect notice
 	def notice_handler(words, words_eol, data)
 		begin
-			if(words_eol[0].match(/Lost connection to server/))
+			if(words_eol[0].match(/(^Disconnected|Lost connection to server)/))
 				disable()
 			end
 		rescue
@@ -272,15 +272,24 @@ class REEval < ShortBus
 		return outtext
 	end # perform_substitution
 
+	# Matches any of the REEval matching expressions 
+	# and yields any non-nil match collections
+	# * sometext is the text to be matched
+	def any_match(sometext)
+		[@RERE, @TRRE, @PARTIAL].each{ |expr|
+			if(matches = expr.match(sometext))
+				yield matches
+			end
+		}
+	end # any_match
+
 	# Searches a message for a directed nick, as in: 
 	# Tak: s/.*/yaddle 
 	# * sometext is the message to search
 	def get_tonick(sometext)
-		[@RERE, @TRRE, @PARTIAL].each{ |expr|
-			if(matches = expr.match(sometext))
-				if(matches[1])
-					return matches[1].sub(/: *$/, '')
-				end
+		any_match(sometext){ |matches|
+			if(matches[1])
+				return matches[1].sub(/: *$/, '')
 			end
 		}
 		return nil
@@ -290,11 +299,9 @@ class REEval < ShortBus
 	# 2s/foo/bar
 	# * sometext is the message to search
 	def get_index(sometext)
-		[@RERE, @TRRE, @PARTIAL].each{ |expr|
-			if(matches = expr.match(sometext))
-				if(matches[2])
-					return matches[2].to_i()
-				end
+		any_match(sometext){ |matches|
+			if(matches[2])
+				return matches[2].to_i()
 			end
 		}
 		return nil
