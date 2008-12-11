@@ -30,7 +30,7 @@ class REEval
 		if(index && (@NOMINAL_SIZE < index.abs()))
 			# Bad index
 			puts("Ignoring #{sometext}: index #{index}")
-			return XCHAT_EAT_NONE
+			return
 		end
 
 		# Append channel name for (some) uniqueness
@@ -42,7 +42,9 @@ class REEval
 			push_text(storekey, sometext)
 		end
 
-		outtext = process_statement(storekey, key, mynick, tonick, index, sometext)
+		outtext = process_statement(storekey, key, mynick, tonick, index, sometext){ |from, to, msg|
+			yield(from, to, msg)
+		}
 
 		if(outtext)
 			# Replacement has occurred
@@ -53,7 +55,9 @@ class REEval
 			if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext))
 				# Push replaced text into queue and reprocess for pending replacements
 				puts("Recursing on '#{outtext}' for #{storekey}")
-				process_full(storekey, mynick, outtext)
+				process_full(storekey, mynick, outtext){ |from, to, msg|
+					yield(from, to, msg)
+				}
 				# push_text(storekey, outtext)
 			end
 		end
@@ -86,7 +90,9 @@ class REEval
 			if(seeds)
 				seeds.each{ |seed|
 					# Process recursively
-					process_full(seed[0], seed[1], seed[3])
+					process_full(seed[0], seed[1], seed[3]){ |from, to, msg|
+						yield(from, to, msg)
+					}
 				}
 			end
 		end
@@ -259,6 +265,7 @@ class REEval
 	# * key is the storage key of the user whose text we want
 	# * index is the index of the message we want
 	def get_text(key, index)
+		# puts("Getting #{key}[#{index}](#{@NOMINAL_SIZE-index})")
 		if(!@lines[key])
 			@lines[key] = create_fixedqueue()
 		end
@@ -275,3 +282,167 @@ class REEval
 		return @lines[key].push(text)
 	end # push_text
 end # REEval
+
+if(__FILE__ == $0)
+	require 'test/unit'
+
+	# <jcopenha> Tak: why don't you just rerun your regression test suite
+	class REEvalTest < Test::Unit::TestCase
+		def setup()
+			@reeval = REEval.new()
+		end # setup
+
+		def test_self_replacement()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['blah', nil],
+				['s/blah/foo/ | s/foo/meh', 'meh'],
+				['tr/a-j/A-J/ | tr/k-z/K-Z', 'MEH'],
+				['s/./A/g', 'AAA'],
+				['s/a/!/gi', '!!!'],
+				['4tr/abhl/lhba', 'halb'],
+				['-1s/hal/HAL', nil],
+				['hallo', 'HALlo']
+			]
+			
+			assert_not_nil(@reeval)
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_self_replacement
+
+		def test_directed_replacement()
+			storekey = 'Tak|#utter-failure'
+			key = 'jcopenha|#utter-failure'
+			mynick = 'Tak'
+			myto = 'jcopenha'
+			inputs = [
+				['s/blah/foo/ | s/foo/meh', 'meh'],
+				['tr/a-j/A-J/ | tr/k-z/K-Z/', 'BLAH'],
+				['s/./A/g', 'AAAA'],
+				['s/a/!/gi', 'bl!h'],
+				['1tr/abhl/lhba', 'halb']
+			]
+			
+			assert_not_nil(@reeval)
+
+			['blah','blah'].each{ |msg|
+				@reeval.process_full(key, myto, msg){ |from, to, msg|
+					assert(false)
+				}
+			}
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, "#{myto}: #{input[0]}"){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_directed_replacement
+
+		def test_transposition()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['The quick, brown fox jumps over the lazy dog.', nil],
+				['tr/aeiou/AEIOU/', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
+				['tr/a-zA-Z/A-Za-z/', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
+				['tr/a-zA-Z/*', '*** *****, ***** *** ***** **** *** **** ***.']
+			]
+			
+			assert_not_nil(@reeval)
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_transposition
+
+		def test_stochastic()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['The quick, brown fox jumps over the lazy dog.', nil],
+				['tr/aeiou/AEIOU/50%', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
+				['tr/a-zA-Z/A-Za-z/50%', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
+				['s/\w+/yaddle/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.'],
+				['s/\w+/yaddle/g | s/yaddle/eeerm/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.']
+			]
+			
+			assert_not_nil(@reeval)
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_not_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_stochastic
+
+		def test_pipeline()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['The quick, brown fox jumps over the lazy dog.', nil],
+				['s/\w*o\w*/yaddle/g | tr/d/g', 'The quick, yaggle yaggle jumps yaggle the lazy yaggle.']
+			]
+			
+			assert_not_nil(@reeval)
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_pipeline
+
+		def test_queue()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['4tr/aeiou/AEIOU', 'blAh'],
+				['4tr/aeiou/AEIOU', 'mEh'],
+				['4tr/aeiou/AEIOU', 'fOO'],
+				['4tr/aeiou/AEIOU', 'bAr'],
+				['4tr/aeiou/AEIOU', 'bAz'],
+				['-5tr/aeiou/AEIOU', nil],
+				['-4tr/aeiou/AEIOU', nil],
+				['-3tr/aeiou/AEIOU', nil],
+				['-2tr/aeiou/AEIOU', nil],
+				['-1tr/aeiou/AEIOU', nil],
+				['blah', 'blAh'],
+				['meh', 'mEh'],
+				['foo', 'fOO'],
+				['bar', 'bAr'],
+				['baz', 'bAz']
+			]
+			
+			assert_not_nil(@reeval)
+
+			['blah','meh','foo','bar','baz'].each{ |text|
+				@reeval.process_full(storekey, mynick, text){ |from, to, msg|
+					assert(false)
+				}
+			}
+
+			# Bounds check
+			@reeval.process_full(storekey, mynick, '100s/.*/meh'){ |from, to, msg|
+				assert(false)
+			}
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_queue
+	end # REEValTest
+end
