@@ -157,7 +157,7 @@ class REEval < ShortBus
 			
 			if(3<words_eol.size)
 				sometext = words_eol[3].sub(/^:/,'')
-				storekey = "#{mynick}|#{words[2]}"
+				storekey = "#{mynick}|#{words[2]}"	# Append channel name for (some) uniqueness
 
 				process_full(storekey, mynick, sometext)
 
@@ -169,6 +169,11 @@ class REEval < ShortBus
 		return XCHAT_EAT_NONE
 	end # process_message
 
+	# Sends a replacement message
+	# * nick is the nick of the user who issued the replacement command
+	# * tonick is the nick of the user whose text nick is replacing, 
+	# or nil for his own
+	# * sometext is the replacement text
 	def output_replacement(nick, tonick, sometext)
 		if(tonick)
 			command("SAY #{nick} thinks #{tonick} meant: #{sometext}")
@@ -177,20 +182,26 @@ class REEval < ShortBus
 		end
 	end # output_replacement
 
+	# Performs a complete message process run
+	# * storekey is the storage key of the user who issued the message 
+	# (nick|channel)
+	# * mynick is the nick of the user who issued the message
+	# * sometext is the complete message
 	def process_full(storekey, mynick, sometext)
 		tonick = get_tonick(sometext)
 		index = get_index(sometext)
 
-		if(index && (0 != index))
+		if(index && (@NOMINAL_SIZE < index.abs()))
+			# Bad index
 			puts("Ignoring #{sometext}: index #{index}")
 			return XCHAT_EAT_NONE
 		end
 
 		# Append channel name for (some) uniqueness
 		key = tonick ? storekey.sub(/.*\|/, "#{tonick}|") : storekey
-		#puts("#{nick} #{mynick} #{key}")
 
 		if(!index && !@ACTION.match(sometext)) 
+			# Plain text message - push into the queue
 			puts("Storing '#{sometext}' for #{storekey}")
 			push_text(storekey, sometext)
 		end
@@ -198,35 +209,47 @@ class REEval < ShortBus
 		outtext = process_statement(storekey, key, mynick, tonick, index, sometext)
 
 		if(outtext)
-			if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext))
-				# Add latest line to db
-				puts("Storing '#{outtext}' for #{storekey}")
-				push_text(storekey, outtext)
-			end
-
+			# Replacement has occurred
 			if(outtext != sometext)
 				output_replacement(mynick, tonick, outtext)
+			end
+
+			if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext))
+				# Push replaced text into queue and reprocess for pending replacements
+				puts("Recursing on '#{outtext}' for #{storekey}")
+				process_full(storekey, mynick, outtext)
+				# push_text(storekey, outtext)
 			end
 		end
 	end # process_full
 
+	# Processes a statement and returns its replacement, or nil
+	# * storekey is the storage key for the message sender
+	# * key is the storage key for the user to whom the message is directed
+	# * mynick is the nick of the message sender
+	# * tonick is the nick of the user to whome the message is directed, 
+	# or nil
+	# * index is the index prepended to the message, or nil
+	# * sometext is the message text
 	def process_statement(storekey, key, mynick, tonick, index, sometext)
-		if(index)	# Regex
+		if(index)	
+		# Regex
 			if(0 <= index)
-				# Lookup old text
+			# Lookup old text and replace
 				oldtext = get_text(key, index)
 				puts("Got #{oldtext} for #{key}")
-				return oldtext ? perform_substitution(oldtext, sometext) : nil
+				if(oldtext) then return perform_substitution(oldtext, sometext); end
 			elsif(0 > index)
-				# Store regex for future
-				set_regex(key, storekey, index, mynick, tonick, sometext)
+			# Store regex for future
+				set_regex(key, storekey, index.abs()-1, mynick, tonick, sometext.sub(@PARTIAL, '\1\3\4'))
 			end
-		else		# Text
+		else		
+		# Text	
 			# Check for preseeded regexes
 			seeds = pop_regexes(key)
 			if(seeds)
 				seeds.each{ |seed|
-					# Recurse
+					# Process recursively
 					process_full(seed[0], seed[1], seed[3])
 				}
 			end
@@ -234,6 +257,10 @@ class REEval < ShortBus
 		return nil
 	end # process_statement
 
+	# Performs a substitution and returns the result, or nil
+	# * plaintext is the input text for the replacement
+	# * regextext is a string representing 
+	# a |-delimited regex chain
 	def perform_substitution(plaintext, regextext)
 		outtext = regextext.split('|').inject(plaintext){ |input, expr|
 			#puts("Applying #{expr} to #{input}")
@@ -245,6 +272,9 @@ class REEval < ShortBus
 		return outtext
 	end # perform_substitution
 
+	# Searches a message for a directed nick, as in: 
+	# Tak: s/.*/yaddle 
+	# * sometext is the message to search
 	def get_tonick(sometext)
 		[@RERE, @TRRE, @PARTIAL].each{ |expr|
 			if(matches = expr.match(sometext))
@@ -254,8 +284,11 @@ class REEval < ShortBus
 			end
 		}
 		return nil
-	end # get_nicks
+	end # get_tonick
 
+	# Searches a message for a specified index, as in:
+	# 2s/foo/bar
+	# * sometext is the message to search
 	def get_index(sometext)
 		[@RERE, @TRRE, @PARTIAL].each{ |expr|
 			if(matches = expr.match(sometext))
@@ -285,11 +318,9 @@ class REEval < ShortBus
 				if(foo = subex.match(origtext))
 				# Only process replacements that actually match something
 					#puts(foo.inspect())
-					# if(rematches[5]) then puts("Suffix #{rematches[5]}"); end
 
 					if(0 < (percent = get_percent(rematches[7])))
-					# if(rematches[5] && rematches[5].strip()[2,1] == '%')
-						#Stochastic crap
+					#Stochastic crap
 						# puts("Using #{percent}%")
 
 						return origtext.gsub(subex){ |match|
@@ -344,50 +375,61 @@ class REEval < ShortBus
 		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? x.tr(from, to) : x) }
 	end # tr_rand
 
+	# Returns a new FixedQueue of the appropriate size
 	def create_fixedqueue()
 		return FixedQueue.new(@NOMINAL_SIZE + 1)
 	end # create_fixedqueue
 
-	def get_regex(nick, index)
-		if(!@regexes[nick])
-			@regexes[nick] = create_fixedqueue()
+	# Stores a regex at a specified index in a user's regex queue
+	# * key is the key for the user in whose queue the regex belongs
+	# * storekey is the key for the user who sent the regex
+	# * index is the index at which to store the regex 
+	# (The regex will be applied after #{index} pops.)
+	# * from is the nick of the user who sent the regex
+	# * to is the nick of the user whose message will be replaced
+	# * regex is the message containing the replacement, sans index
+	def set_regex(key, storekey, index, from, to, regex)
+		if(!@regexes[key])
+			@regexes[key] = create_fixedqueue()
 		end
-		return @regexes[nick][@NOMINAL_SIZE-index]
-	end # get_regex
 
-	def set_regex(nick, storenick, index, from, to, regex)
-		if(!@regexes[nick])
-			@regexes[nick] = create_fixedqueue()
-		end
+		puts("Storing regex #{regex} for #{key}(#{index})")
+		store = [storekey, from, to, regex]
 
-		store = [storenick, from, to, regex]
-
-		if(@regexes[nick][@NOMINAL_SIZE-index])
-			return @regexes[nick][@NOMINAL_SIZE-index] << store
+		if(@regexes[key][index])
+			return @regexes[key][index] << store
 		else
-			return @regexes[nick][@NOMINAL_SIZE-index] = [store]
+			return @regexes[key][index] = [store]
 		end
 	end # set_regex
 
-	def pop_regexes(nick)
-		if(!@regexes[nick])
-			@regexes[nick] = create_fixedqueue()
+	# Pops a user's regexes from his queue
+	# * key is the storage key of the user whose regexes we want
+	def pop_regexes(key)
+		if(!@regexes[key])
+			@regexes[key] = create_fixedqueue()
 		end
-		return @regexes[nick].pop()
+		return @regexes[key].pop()
 	end # pop_regexes
 
-	def get_text(nick, index)
-		if(!@lines[nick])
-			@lines[nick] = create_fixedqueue()
+	# Gets a user's text from his queue
+	# * key is the storage key of the user whose text we want
+	# * index is the index of the message we want
+	def get_text(key, index)
+		if(!@lines[key])
+			@lines[key] = create_fixedqueue()
 		end
-		return @lines[nick][@NOMINAL_SIZE-index]
+		return @lines[key][@NOMINAL_SIZE-index]
 	end # get_text
 
-	def push_text(nick, text)
-		if(!@lines[nick])
-			@lines[nick] = create_fixedqueue()
+	# Pushes a message into a user's queue
+	# * key is the storage key of the user
+	# * text is the message to be pushed
+	def push_text(key, text)
+		if(!@lines[key])
+			@lines[key] = create_fixedqueue()
 		end
-		return @lines[nick].push(text)
+		return @lines[key].push(text)
 	end # push_text
 end # REEval
 
