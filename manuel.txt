@@ -32,7 +32,11 @@ if you next say "s/write/right/" the person running REEval will spit out
 
 See?  Quick and easy.  Just a couple of things to remember about the regex:
 2.1.0  The regex always applies to the last thing you said.  You can't change
-       something to said 3 hours ago.  Don't try.
+       something to said 3 hours ago.  Don't try.  That is until message 
+       buffering is implemented, then you will be able to change something
+       that was said at least a couple of lines ago.  You might even be able
+       to change things that haven't even been said yet if predictive 
+       replacement gets implemented. 
 2.1.1  It is case sensitive.  "Write" will not match "write"  so be careful
        not to asshand your regex.  You can add a "/i" at the end if you want
        case insensitive matching.
@@ -52,6 +56,12 @@ See?  Quick and easy.  Just a couple of things to remember about the regex:
        with "ou".  So you could get any of the following
        "color","coulor","colour","coulour".  It's very useful for britifiying
        words and for adding unnecessary commas.
+2.1.7  Transpositions can be accomplished using the "tr/aeiou/AEIOU/" syntax.
+       This also works with stochastic replacement, "tr/aeiou/AEIOU/50%".
+2.1.8  You can pipeline commands such as "s/command/string/ | tr/aeiou/AEIOU/".
+2.1.9  To simplify complex escaping of '/' you can use any non-alphanumeric 
+       character as the delimiter fo the regular experssion, i.e., 
+       "s!this!lol!".
 
 2.2  Rewriting what other people say
 
