@@ -28,8 +28,8 @@ class REEval
 		index = get_index(sometext)
 
 		if(index && (@NOMINAL_SIZE < index.abs()))
-			# Bad index
-			puts("Ignoring #{sometext}: index #{index}")
+		# Bad index
+			# puts("Ignoring #{sometext}: index #{index}")
 			return
 		end
 
@@ -37,8 +37,8 @@ class REEval
 		key = tonick ? storekey.sub(/.*\|/, "#{tonick}|") : storekey
 
 		if(!index && !@ACTION.match(sometext)) 
-			# Plain text message - push into the queue
-			puts("Storing '#{sometext}' for #{storekey}")
+		# Plain text message - push into the queue
+			# puts("Storing '#{sometext}' for #{storekey}")
 			push_text(storekey, sometext)
 		end
 
@@ -53,8 +53,8 @@ class REEval
 			end
 
 			if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext))
-				# Push replaced text into queue and reprocess for pending replacements
-				puts("Recursing on '#{outtext}' for #{storekey}")
+			# Push replaced text into queue and reprocess for pending replacements
+				# puts("Recursing on '#{outtext}' for #{storekey}")
 				process_full(storekey, mynick, outtext){ |from, to, msg|
 					yield(from, to, msg)
 				}
@@ -77,7 +77,7 @@ class REEval
 			if(0 <= index)
 			# Lookup old text and replace
 				oldtext = get_text(key, index)
-				puts("Got #{oldtext} for #{key}")
+				# puts("Got #{oldtext} for #{key}")
 				if(oldtext) then return perform_substitution(oldtext, sometext); end
 			elsif(0 > index)
 			# Store regex for future
@@ -242,7 +242,7 @@ class REEval
 			@regexes[key] = create_fixedqueue()
 		end
 
-		puts("Storing regex #{regex} for #{key}(#{index})")
+		# puts("Storing regex #{regex} for #{key}(#{index})")
 		store = [storekey, from, to, regex]
 
 		if(@regexes[key][index])
