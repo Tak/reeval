@@ -9,6 +9,7 @@ class REEval < ShortBus
 	def initialize()
 		super
 		@lastmessage=''
+		@regexes = {}
 		@lines = {}
 		# @RERE = /^([^ :]+: *)?s(.)([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))?/
 		@RERE = /^([^ :]+: *)?(-?\d*)?s([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
@@ -141,6 +142,8 @@ class REEval < ShortBus
 			mynick = words[0].sub(/^:([^!]*)!.*/,'\1')
 			nick = nil
 			storekey = nil
+			index = 0
+			line = nil
 
 			# Strip intermittent trailing @ word
 			if(words.last == '@')
@@ -156,21 +159,16 @@ class REEval < ShortBus
 			if(3<words_eol.size)
 				sometext = words_eol[3].sub(/^:/,'')
 
-				[@RERE, @TRRE, @PARTIAL].each{ |expr|
-					if(matches = expr.match(sometext))
-						if(matches[1])
-							nick = mynick
-							mynick = matches[1].sub(/: *$/, '')
-						end
-						if(matches[2])
-						end
-						break
-					end
-				}# Check for "nick: expression"
+				tonick = get_tonick(sometext)
+				index = get_index(sometext)
+
+				if(index && (0 != index))
+					puts("Ignoring #{sometext}: index #{index}")
+				end
 
 				# Append channel name for (some) uniqueness
-				key = "#{mynick}|#{words[2]}"
-				storekey = (nick) ? "#{nick}|#{words[2]}" : key
+				storekey = "#{mynick}|#{words[2]}"
+				key = (tonick) ? "#{tonick}|#{words[2]}" : key
 				#puts("#{nick} #{mynick} #{key}")
 
 				if(@lines[key])
@@ -188,13 +186,7 @@ class REEval < ShortBus
 				if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext)) then @lines[storekey] = outtext; end
 
 				if(outtext != sometext)
-					if(nick)
-						command("SAY #{nick} thinks #{mynick} meant: #{outtext}")
-					else
-						command("SAY #{mynick} meant: #{outtext}")
-					end
-
-					return XCHAT_EAT_NONE
+					output_replacement(mynick, tonick, outtext)
 				end
 			end
 		rescue
@@ -203,6 +195,39 @@ class REEval < ShortBus
 
 		return XCHAT_EAT_NONE
 	end # process_message
+
+	def output_replacement(nick, tonick, sometext)
+		if(tonick)
+			command("SAY #{nick} thinks #{tonick} meant: #{outtext}")
+		else
+			command("SAY #{nick} meant: #{outtext}")
+		end
+	end # output_replacement
+
+	def process_statement(nick, tonick, sometext)
+	end # process_statement
+
+	def get_tonick(sometext)
+		[@RERE, @TRRE, @PARTIAL].each{ |expr|
+			if(matches = expr.match(sometext))
+				if(matches[1])
+					return matches[1].sub(/: *$/, '')
+				end
+			end
+		}
+		return nil
+	end # get_nicks
+
+	def get_index(sometext)
+		[@RERE, @TRRE, @PARTIAL].each{ |expr|
+			if(matches = expr.match(sometext))
+				if(matches[2])
+					return matches[2].to_i()
+				end
+			end
+		}
+		return nil
+	end # get_index
 
 	# Performs a substitution and returns the result 
 	# (or nil on no match)
@@ -269,7 +294,7 @@ class REEval < ShortBus
 		end
 
 		return -1
-	end
+	end # get_percent
 
 	# Randomly transposes patterns in a string
 	# If this is brokeback, blame beanfootage
@@ -279,7 +304,39 @@ class REEval < ShortBus
 	# * prob is the probability as an integer percentage
 	def tr_rand(str, from, to, prob)
 		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? x.tr(from, to) : x) }
-	end
+	end # tr_rand
+
+	def create_fixedqueue()
+		return FixedQueue.new(@NOMINAL_SIZE + 1)
+	end # create_fixedqueue
+
+	def get_regex(nick, index)
+		if(!@regexes[nick])
+			@regexes[nick] = create_fixedqueue()
+		end
+		return @regexes[nick][@NOMINAL_SIZE-index]
+	end # get_regex
+
+	def set_regex(nick, index, regex)
+		if(!@regexes[nick])
+			@regexes[nick] = create_fixedqueue()
+		end
+		return @regexes[nick][@NOMINAL_SIZE-index] = regex
+	end # set_regex
+
+	def get_text(nick, index)
+		if(!@lines[nick])
+			@lines[nick] = create_fixedqueue()
+		end
+		return @lines[nick][@NOMINAL_SIZE-index]
+	end # get_text
+
+	def push_text(nick, text)
+		if(!@lines[nick])
+			@lines[nick] = create_fixedqueue()
+		end
+		return @lines[nick].push(text)
+	end # push_text
 end # REEval
 
 if(__FILE__ == $0)
