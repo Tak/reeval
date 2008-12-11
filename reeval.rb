@@ -11,7 +11,6 @@ class REEval < ShortBus
 		@lastmessage=''
 		@regexes = {}
 		@lines = {}
-		# @RERE = /^([^ :]+: *)?s(.)([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))?/
 		@RERE = /^([^ :]+: *)?(-?\d*)?s([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
 		@TRRE = /^([^ :]+: *)?(-?\d*)?tr([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
 		@PARTIAL = /^([^ :]+: *)?(-?\d*)?(s|tr)([^\w])/
@@ -158,39 +157,13 @@ class REEval < ShortBus
 			
 			if(3<words_eol.size)
 				sometext = words_eol[3].sub(/^:/,'')
-
-				tonick = get_tonick(sometext)
-				index = get_index(sometext)
-
-				if(index && (0 != index))
-					puts("Ignoring #{sometext}: index #{index}")
-				end
-
-				# Append channel name for (some) uniqueness
 				storekey = "#{mynick}|#{words[2]}"
-				key = (tonick) ? "#{tonick}|#{words[2]}" : key
-				#puts("#{nick} #{mynick} #{key}")
 
-				if(@lines[key])
-					outtext = sometext.split('|').inject(@lines[key]){ |input, expr|
-						#puts("Applying #{expr} to #{input}")
-						substitute(input.strip(), expr.strip())
-					}# pipeline expressions
-					if(!outtext || outtext.strip() == @lines[key].strip()) then outtext = sometext; end
-				else
-					outtext = sometext
-				end
+				process_full(storekey, mynick, sometext)
 
-				# Add latest line to db
-				#puts("Adding '#{sometext}' for #{key} (was: '#{@lines[storekey]}')")
-				if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext)) then @lines[storekey] = outtext; end
-
-				if(outtext != sometext)
-					output_replacement(mynick, tonick, outtext)
-				end
 			end
 		rescue
-			# puts("#{caller.first}: #{$!}")
+			puts("#{caller.first}: #{$!}")
 		end
 
 		return XCHAT_EAT_NONE
@@ -198,14 +171,79 @@ class REEval < ShortBus
 
 	def output_replacement(nick, tonick, sometext)
 		if(tonick)
-			command("SAY #{nick} thinks #{tonick} meant: #{outtext}")
+			command("SAY #{nick} thinks #{tonick} meant: #{sometext}")
 		else
-			command("SAY #{nick} meant: #{outtext}")
+			command("SAY #{nick} meant: #{sometext}")
 		end
 	end # output_replacement
 
-	def process_statement(nick, tonick, sometext)
+	def process_full(storekey, mynick, sometext)
+		tonick = get_tonick(sometext)
+		index = get_index(sometext)
+
+		if(index && (0 != index))
+			puts("Ignoring #{sometext}: index #{index}")
+			return XCHAT_EAT_NONE
+		end
+
+		# Append channel name for (some) uniqueness
+		key = tonick ? storekey.sub(/.*\|/, "#{tonick}|") : storekey
+		#puts("#{nick} #{mynick} #{key}")
+
+		if(!index && !@ACTION.match(sometext)) 
+			puts("Storing '#{sometext}' for #{storekey}")
+			push_text(storekey, sometext)
+		end
+
+		outtext = process_statement(storekey, key, mynick, tonick, index, sometext)
+
+		if(outtext)
+			if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext))
+				# Add latest line to db
+				puts("Storing '#{outtext}' for #{storekey}")
+				push_text(storekey, outtext)
+			end
+
+			if(outtext != sometext)
+				output_replacement(mynick, tonick, outtext)
+			end
+		end
+	end # process_full
+
+	def process_statement(storekey, key, mynick, tonick, index, sometext)
+		if(index)	# Regex
+			if(0 <= index)
+				# Lookup old text
+				oldtext = get_text(key, index)
+				puts("Got #{oldtext} for #{key}")
+				return oldtext ? perform_substitution(oldtext, sometext) : nil
+			elsif(0 > index)
+				# Store regex for future
+				set_regex(key, storekey, index, mynick, tonick, sometext)
+			end
+		else		# Text
+			# Check for preseeded regexes
+			seeds = pop_regexes(key)
+			if(seeds)
+				seeds.each{ |seed|
+					# Recurse
+					process_full(seed[0], seed[1], seed[3])
+				}
+			end
+		end
+		return nil
 	end # process_statement
+
+	def perform_substitution(plaintext, regextext)
+		outtext = regextext.split('|').inject(plaintext){ |input, expr|
+			#puts("Applying #{expr} to #{input}")
+			substitute(input.strip(), expr.strip())
+		}# pipeline expressions
+		if(!outtext || outtext.strip() == plaintext.strip())
+			return nil
+		end
+		return outtext
+	end # perform_substitution
 
 	def get_tonick(sometext)
 		[@RERE, @TRRE, @PARTIAL].each{ |expr|
@@ -317,12 +355,26 @@ class REEval < ShortBus
 		return @regexes[nick][@NOMINAL_SIZE-index]
 	end # get_regex
 
-	def set_regex(nick, index, regex)
+	def set_regex(nick, storenick, index, from, to, regex)
 		if(!@regexes[nick])
 			@regexes[nick] = create_fixedqueue()
 		end
-		return @regexes[nick][@NOMINAL_SIZE-index] = regex
+
+		store = [storenick, from, to, regex]
+
+		if(@regexes[nick][@NOMINAL_SIZE-index])
+			return @regexes[nick][@NOMINAL_SIZE-index] << store
+		else
+			return @regexes[nick][@NOMINAL_SIZE-index] = [store]
+		end
 	end # set_regex
+
+	def pop_regexes(nick)
+		if(!@regexes[nick])
+			@regexes[nick] = create_fixedqueue()
+		end
+		return @regexes[nick].pop()
+	end # pop_regexes
 
 	def get_text(nick, index)
 		if(!@lines[nick])
