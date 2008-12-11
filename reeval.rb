@@ -1,202 +1,153 @@
 #!/usr/bin/env ruby
 
-require 'shortbus'
+require 'fixedqueue'
 
-# XChat plugin to interpret replacement regexen
-class REEval < ShortBus
-	# Constructor
+# Core regex replacement engine
+class REEval
 	def initialize()
-		super
-		@lastmessage=''
+		@regexes = {}
 		@lines = {}
-		# @RERE = /^([^ :]+: *)?s(.)([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))?/
-		@RERE = /^([^ :]+: *)?s([^\w])([^\2]*)\2([^\2]*)(\2([ginx]+|[0-9]{2}\%|))$/
-		@TRRE = /^([^ :]+: *)?tr([^\w])([^\2]*)\2([^\2]*)(\2([0-9]{2}\%)?)$/
-		@PARTIAL = /^([^ :]+: *)?(s|tr)([^\w])/
+		@RERE = /^([^ :]+: *)?(-?\d*)?s([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
+		@TRRE = /^([^ :]+: *)?(-?\d*)?tr([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
+		@PARTIAL = /^([^ :]+: *)?(-?\d*)?(s|tr)([^\w])/
 		@ACTION = /^\001ACTION.*\001/
 		@REOPTIONS = {	'i' => Regexp::IGNORECASE,
 				'n' => Regexp::MULTILINE,
 				'x' => Regexp::EXTENDED
 				}
-		@exclude = []
-		@hooks = []
-		hook_command( 'REEVAL', XCHAT_PRI_NORM, method( :enable), '')
-		hook_command( 'REEXCLUDE', XCHAT_PRI_NORM, method( :exclude), '')
-		hook_server( 'Disconnected', XCHAT_PRI_NORM, method( :disable))
-		hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler))
-		puts('REEval loaded. Run /REEVAL to enable.')
+		@NOMINAL_SIZE = 5
 	end # initialize
 
-	# Enables the plugin
-	def enable(words, words_eol, data)
-		begin
-			if([] == @hooks)
-				@hooks << hook_server('PRIVMSG', XCHAT_PRI_NORM, method(:process_message))
-				@hooks << hook_print('Your Message', XCHAT_PRI_NORM, method(:your_message))
-				puts('REEval enabled.')
-			else
-				disable()
-			end
-		rescue
-			# puts("#{caller.first}: #{$!}")
+	# Performs a complete message process run
+	# * storekey is the storage key of the user who issued the message 
+	# (nick|channel)
+	# * mynick is the nick of the user who issued the message
+	# * sometext is the complete message
+	def process_full(storekey, mynick, sometext)
+		tonick = get_tonick(sometext)
+		index = get_index(sometext)
+
+		if(index && (@NOMINAL_SIZE < index.abs()))
+		# Bad index
+			# puts("Ignoring #{sometext}: index #{index}")
+			return
 		end
 
-		return XCHAT_EAT_ALL
-	end # enable
+		# Append channel name for (some) uniqueness
+		key = tonick ? storekey.sub(/.*\|/, "#{tonick}|") : storekey
 
-	# Disables the plugin
-	def disable(words=nil, words_eol=nil, data=nil)
-		begin
-			if([] == @hooks)
-				puts('REEval already disabled.')
-			else
-				@hooks.each{ |hook| unhook(hook) }
-				@hooks = []
-				puts('REEval disabled.')
-			end
-		rescue
-			# puts("#{caller.first}: #{$!}")
+		if(!index && !@ACTION.match(sometext)) 
+		# Plain text message - push into the queue
+			# puts("Storing '#{sometext}' for #{storekey}")
+			push_text(storekey, sometext)
 		end
 
-		return XCHAT_EAT_ALL
-	end # disable
+		outtext = process_statement(storekey, key, mynick, tonick, index, sometext){ |from, to, msg|
+			yield(from, to, msg)
+		}
 
-	# Check for disconnect notice
-	def notice_handler(words, words_eol, data)
-		begin
-			if(words_eol[0].match(/Lost connection to server/))
-				disable()
-			end
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
-
-		return XCHAT_EAT_NONE
-	end # notice_handler
-
-	def exclude(words, words_eol, data)
-		begin
-			1.upto(words.size-1){ |i|
-				if(0 == @exclude.select{ |item| item == words[i] }.size)
-					@exclude << words[i]
-					puts("Excluding #{words[i]}")
-				else
-					@exclude -= [words[i]]
-					puts("Unexcluding #{words[i]}")
-				end
-			}
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
-
-		return XCHAT_EAT_ALL
-	end # exclude
-
-	# Processes outgoing messages 
-	# (Really formats the data and hands it to process_message())
-	# * param words [Mynick, mymessage]
-	# * param data Unused
-	# * returns XCHAT_EAT_NONE
-	def your_message(words, data)
-		rv = XCHAT_EAT_NONE
-
-		begin
-			# Don't catch the outgoing 'Joe meant: blah'
-			if(/^([^ ]+ thinks )?[^ ]+ meant:/.match(words[1]) || (0 < @exclude.select{ |item| item == get_info('channel') }.size)) then return XCHAT_EAT_NONE; end
-
-			words_eol = []
-			# Build an array of the format process_message expects
-			newwords = [words[0], 'PRIVMSG', get_info('channel')] + (words - [words[0]]) 
-
-			#puts("Outgoing message: #{words.join(' ')}")
-
-			# Populate words_eol
-			1.upto(newwords.size){ |i|
-				words_eol << (i..newwords.size).inject(''){ |str, j|
-					"#{str}#{newwords[j-1]} "
-				}.strip()
-			}
-
-			rv = process_message(newwords, words_eol, data)
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
-
-		return rv
-	end # your_message
-
-	# Processes an incoming server message
-	# * words[0] -> ':' + user that sent the text
-	# * words[1] -> PRIVMSG
-	# * words[2] -> channel
-	# * words[3..(words.size-1)] -> ':' + text
-	# * words_eol is the joining of each array of words[i..words.size] 
-	# * (e.g. ["all the words", "the words", "words"]
-	def process_message(words, words_eol, data)
-		begin
-			sometext = ''
-			outtext = ''
-			mynick = words[0].sub(/^:([^!]*)!.*/,'\1')
-			nick = nil
-			storekey = nil
-
-			# Strip intermittent trailing @ word
-			if(words.last == '@')
-				words.pop()
-				words_eol.collect!{ |w| w.gsub(/\s+@$/,'') }
+		if(outtext)
+			# Replacement has occurred
+			if(outtext != sometext)
+				yield(mynick, tonick, outtext)
 			end
 
-			if(0 < @exclude.select{ |item| item == get_info('channel') }.size)
-				return XCHAT_EAT_NONE
+			if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext))
+			# Push replaced text into queue and reprocess for pending replacements
+				# puts("Recursing on '#{outtext}' for #{storekey}")
+				process_full(storekey, mynick, outtext){ |from, to, msg|
+					yield(from, to, msg)
+				}
+				# push_text(storekey, outtext)
 			end
-			#puts("Processing message: #{words_eol.join('|')}")
-			
-			if(3<words_eol.size)
-				sometext = words_eol[3].sub(/^:/,'')
-
-				[@RERE, @TRRE, @PARTIAL].each{ |expr|
-					if((matches = expr.match(sometext)) && (matches[1]))
-						nick = mynick
-						mynick = matches[1].sub(/: *$/, '')
-						break
-					end
-				}# Check for "nick: expression"
-
-				# Append channel name for (some) uniqueness
-				key = "#{mynick}|#{words[2]}"
-				storekey = (nick) ? "#{nick}|#{words[2]}" : key
-				#puts("#{nick} #{mynick} #{key}")
-
-				if(@lines[key])
-					outtext = sometext.split('|').inject(@lines[key]){ |input, expr|
-						#puts("Applying #{expr} to #{input}")
-						substitute(input.strip(), expr.strip())
-					}# pipeline expressions
-					if(!outtext || outtext.strip() == @lines[key].strip()) then outtext = sometext; end
-				else
-					outtext = sometext
-				end
-
-				# Add latest line to db
-				#puts("Adding '#{sometext}' for #{key} (was: '#{@lines[storekey]}')")
-				if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext)) then @lines[storekey] = outtext; end
-
-				if(outtext != sometext)
-					if(nick)
-						command("SAY #{nick} thinks #{mynick} meant: #{outtext}")
-					else
-						command("SAY #{mynick} meant: #{outtext}")
-					end
-
-					return XCHAT_EAT_NONE
-				end
-			end
-		rescue
-			# puts("#{caller.first}: #{$!}")
 		end
+	end # process_full
 
-		return XCHAT_EAT_NONE
-	end # process_message
+	# Processes a statement and returns its replacement, or nil
+	# * storekey is the storage key for the message sender
+	# * key is the storage key for the user to whom the message is directed
+	# * mynick is the nick of the message sender
+	# * tonick is the nick of the user to whome the message is directed, 
+	# or nil
+	# * index is the index prepended to the message, or nil
+	# * sometext is the message text
+	def process_statement(storekey, key, mynick, tonick, index, sometext)
+		if(index)	
+		# Regex
+			if(0 <= index)
+			# Lookup old text and replace
+				oldtext = get_text(key, index)
+				# puts("Got #{oldtext} for #{key}")
+				if(oldtext) then return perform_substitution(oldtext, sometext); end
+			elsif(0 > index)
+			# Store regex for future
+				set_regex(key, storekey, index.abs()-1, mynick, tonick, sometext.sub(@PARTIAL, '\1\3\4'))
+			end
+		else		
+		# Text	
+			# Check for preseeded regexes
+			seeds = pop_regexes(key)
+			if(seeds)
+				seeds.each{ |seed|
+					# Process recursively
+					process_full(seed[0], seed[1], seed[3]){ |from, to, msg|
+						yield(from, to, msg)
+					}
+				}
+			end
+		end
+		return nil
+	end # process_statement
+
+	# Performs a substitution and returns the result, or nil
+	# * plaintext is the input text for the replacement
+	# * regextext is a string representing 
+	# a |-delimited regex chain
+	def perform_substitution(plaintext, regextext)
+		outtext = regextext.split('|').inject(plaintext){ |input, expr|
+			#puts("Applying #{expr} to #{input}")
+			substitute(input.strip(), expr.strip())
+		}# pipeline expressions
+		if(!outtext || outtext.strip() == plaintext.strip())
+			return nil
+		end
+		return outtext
+	end # perform_substitution
+
+	# Matches any of the REEval matching expressions 
+	# and yields any non-nil match collections
+	# * sometext is the text to be matched
+	def any_match(sometext)
+		[@RERE, @TRRE, @PARTIAL].each{ |expr|
+			if(matches = expr.match(sometext))
+				yield matches
+			end
+		}
+	end # any_match
+
+	# Searches a message for a directed nick, as in: 
+	# Tak: s/.*/yaddle 
+	# * sometext is the message to search
+	def get_tonick(sometext)
+		any_match(sometext){ |matches|
+			if(matches[1])
+				return matches[1].sub(/: *$/, '')
+			end
+		}
+		return nil
+	end # get_tonick
+
+	# Searches a message for a specified index, as in:
+	# 2s/foo/bar
+	# * sometext is the message to search
+	def get_index(sometext)
+		any_match(sometext){ |matches|
+			if(matches[2])
+				return matches[2].to_i()
+			end
+		}
+		return nil
+	end # get_index
 
 	# Performs a substitution and returns the result 
 	# (or nil on no match)
@@ -209,38 +160,36 @@ class REEval < ShortBus
 			# If the string is a valid replacement...
 				# Build options var from trailing characters
 				options = @REOPTIONS.inject(0){ |val, pair|
-					(rematches[6] && rematches[6].include?(pair[0])) ? val | pair[1] : val
+					(rematches[7] && rematches[7].include?(pair[0])) ? val | pair[1] : val
 				}
 
-				subex = Regexp.compile(rematches[3], options)
+				subex = Regexp.compile(rematches[4], options)
 				if(foo = subex.match(origtext))
 				# Only process replacements that actually match something
 					#puts(foo.inspect())
-					# if(rematches[5]) then puts("Suffix #{rematches[5]}"); end
 
-					if(0 < (percent = get_percent(rematches[6])))
-					# if(rematches[5] && rematches[5].strip()[2,1] == '%')
-						#Stochastic crap
+					if(0 < (percent = get_percent(rematches[7])))
+					#Stochastic crap
 						# puts("Using #{percent}%")
 
 						return origtext.gsub(subex){ |match|
 							blah = rand(101)
 							# puts("Randomly drew #{blah}: #{(blah < percent) ? '' : 'not '}replacing")
-							((blah < percent) ? match.sub(subex, rematches[4]) : match)
+							((blah < percent) ? match.sub(subex, rematches[5]) : match)
 						}
 					else
-						return ((rematches[6] && rematches[6].include?('g')) ? 
-							origtext.gsub(subex, rematches[4]) : 
-							origtext.sub(subex, rematches[4]))
+						return ((rematches[7] && rematches[7].include?('g')) ? 
+							origtext.gsub(subex, rematches[5]) : 
+							origtext.sub(subex, rematches[5]))
 					end
 				end
 			elsif(trmatches = @TRRE.match(restring))
 			# If the string is a valid transposition
-				if(0 > (percent = get_percent(trmatches[6]))) then percent = 1000; end
-				return tr_rand(origtext, trmatches[3], trmatches[4], percent)
+				if(0 > (percent = get_percent(trmatches[7]))) then percent = 1000; end
+				return tr_rand(origtext, trmatches[4], trmatches[5], percent)
 			elsif((partial = @PARTIAL.match(restring)) && recurse)
 				# puts("Recursing to #{restring + partial[3].to_s()}")
-				return substitute(origtext, restring + partial[3].to_s(), false)
+				return substitute(origtext, restring + partial[4].to_s(), false)
 			# else
 			# 	puts("No match for #{restring}")
 			end
@@ -263,7 +212,7 @@ class REEval < ShortBus
 		end
 
 		return -1
-	end
+	end # get_percent
 
 	# Randomly transposes patterns in a string
 	# If this is brokeback, blame beanfootage
@@ -273,10 +222,227 @@ class REEval < ShortBus
 	# * prob is the probability as an integer percentage
 	def tr_rand(str, from, to, prob)
 		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? x.tr(from, to) : x) }
-	end
+	end # tr_rand
+
+	# Returns a new FixedQueue of the appropriate size
+	def create_fixedqueue()
+		return FixedQueue.new(@NOMINAL_SIZE + 1)
+	end # create_fixedqueue
+
+	# Stores a regex at a specified index in a user's regex queue
+	# * key is the key for the user in whose queue the regex belongs
+	# * storekey is the key for the user who sent the regex
+	# * index is the index at which to store the regex 
+	# (The regex will be applied after #{index} pops.)
+	# * from is the nick of the user who sent the regex
+	# * to is the nick of the user whose message will be replaced
+	# * regex is the message containing the replacement, sans index
+	def set_regex(key, storekey, index, from, to, regex)
+		if(!@regexes[key])
+			@regexes[key] = create_fixedqueue()
+		end
+
+		# puts("Storing regex #{regex} for #{key}(#{index})")
+		store = [storekey, from, to, regex]
+
+		if(@regexes[key][index])
+			return @regexes[key][index] << store
+		else
+			return @regexes[key][index] = [store]
+		end
+	end # set_regex
+
+	# Pops a user's regexes from his queue
+	# * key is the storage key of the user whose regexes we want
+	def pop_regexes(key)
+		if(!@regexes[key])
+			@regexes[key] = create_fixedqueue()
+		end
+		return @regexes[key].pop()
+	end # pop_regexes
+
+	# Gets a user's text from his queue
+	# * key is the storage key of the user whose text we want
+	# * index is the index of the message we want
+	def get_text(key, index)
+		# puts("Getting #{key}[#{index}](#{@NOMINAL_SIZE-index})")
+		if(!@lines[key])
+			@lines[key] = create_fixedqueue()
+		end
+		return @lines[key][@NOMINAL_SIZE-index]
+	end # get_text
+
+	# Pushes a message into a user's queue
+	# * key is the storage key of the user
+	# * text is the message to be pushed
+	def push_text(key, text)
+		if(!@lines[key])
+			@lines[key] = create_fixedqueue()
+		end
+		return @lines[key].push(text)
+	end # push_text
 end # REEval
 
 if(__FILE__ == $0)
-	blah = REEval.new()
-	blah.run()
+	require 'test/unit'
+
+	# <jcopenha> Tak: why don't you just rerun your regression test suite
+	class REEvalTest < Test::Unit::TestCase
+		def setup()
+			@reeval = REEval.new()
+		end # setup
+
+		def test_self_replacement()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['blah', nil],
+				['s/blah/foo/ | s/foo/meh', 'meh'],
+				['tr/a-j/A-J/ | tr/k-z/K-Z', 'MEH'],
+				['s/./A/g', 'AAA'],
+				['s/a/!/gi', '!!!'],
+				['4tr/abhl/lhba', 'halb'],
+				['-1s/hal/HAL', nil],
+				['hallo', 'HALlo']
+			]
+			
+			assert_not_nil(@reeval)
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_self_replacement
+
+		def test_directed_replacement()
+			storekey = 'Tak|#utter-failure'
+			key = 'jcopenha|#utter-failure'
+			mynick = 'Tak'
+			myto = 'jcopenha'
+			inputs = [
+				['s/blah/foo/ | s/foo/meh', 'meh'],
+				['tr/a-j/A-J/ | tr/k-z/K-Z/', 'BLAH'],
+				['s/./A/g', 'AAAA'],
+				['s/a/!/gi', 'bl!h'],
+				['1tr/abhl/lhba', 'halb']
+			]
+			
+			assert_not_nil(@reeval)
+
+			['blah','blah'].each{ |msg|
+				@reeval.process_full(key, myto, msg){ |from, to, msg|
+					assert(false)
+				}
+			}
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, "#{myto}: #{input[0]}"){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_directed_replacement
+
+		def test_transposition()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['The quick, brown fox jumps over the lazy dog.', nil],
+				['tr/aeiou/AEIOU/', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
+				['tr/a-zA-Z/A-Za-z/', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
+				['tr/a-zA-Z/*', '*** *****, ***** *** ***** **** *** **** ***.']
+			]
+			
+			assert_not_nil(@reeval)
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_transposition
+
+		def test_stochastic()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['The quick, brown fox jumps over the lazy dog.', nil],
+				['tr/aeiou/AEIOU/50%', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
+				['tr/a-zA-Z/A-Za-z/50%', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
+				['s/\w+/yaddle/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.'],
+				['s/\w+/yaddle/g | s/yaddle/eeerm/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.']
+			]
+			
+			assert_not_nil(@reeval)
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_not_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_stochastic
+
+		def test_pipeline()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['The quick, brown fox jumps over the lazy dog.', nil],
+				['s/\w*o\w*/yaddle/g | tr/d/g', 'The quick, yaggle yaggle jumps yaggle the lazy yaggle.']
+			]
+			
+			assert_not_nil(@reeval)
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_pipeline
+
+		def test_queue()
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			myto = nil
+			inputs = [
+				['4tr/aeiou/AEIOU', 'blAh'],
+				['4tr/aeiou/AEIOU', 'mEh'],
+				['4tr/aeiou/AEIOU', 'fOO'],
+				['4tr/aeiou/AEIOU', 'bAr'],
+				['4tr/aeiou/AEIOU', 'bAz'],
+				['-5tr/aeiou/AEIOU', nil],
+				['-4tr/aeiou/AEIOU', nil],
+				['-3tr/aeiou/AEIOU', nil],
+				['-2tr/aeiou/AEIOU', nil],
+				['-1tr/aeiou/AEIOU', nil],
+				['blah', 'blAh'],
+				['meh', 'mEh'],
+				['foo', 'fOO'],
+				['bar', 'bAr'],
+				['baz', 'bAz']
+			]
+			
+			assert_not_nil(@reeval)
+
+			['blah','meh','foo','bar','baz'].each{ |text|
+				@reeval.process_full(storekey, mynick, text){ |from, to, msg|
+					assert(false)
+				}
+			}
+
+			# Bounds check
+			@reeval.process_full(storekey, mynick, '100s/.*/meh'){ |from, to, msg|
+				assert(false)
+			}
+
+			inputs.each{ |input|
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert_equal([mynick, myto, input[1]], [from, to, msg])
+				}
+			}
+		end # test_queue
+	end # REEValTest
 end
