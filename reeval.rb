@@ -24,6 +24,8 @@ class REEval
 	# * mynick is the nick of the user who issued the message
 	# * sometext is the complete message
 	def process_full(storekey, mynick, sometext)
+		if(@ACTION.match(sometext)) then return; end
+
 		tonick = get_tonick(sometext)
 		index = get_index(sometext)
 
@@ -36,7 +38,7 @@ class REEval
 		# Append channel name for (some) uniqueness
 		key = tonick ? storekey.sub(/.*\|/, "#{tonick}|") : storekey
 
-		if(!index && !@ACTION.match(sometext)) 
+		if(!index)
 		# Plain text message - push into the queue
 			# puts("Storing '#{sometext}' for #{storekey}")
 			push_text(storekey, sometext)
@@ -52,7 +54,7 @@ class REEval
 				yield(mynick, tonick, outtext)
 			end
 
-			if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@ACTION.match(outtext) && !@PARTIAL.match(outtext))
+			if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@PARTIAL.match(outtext))
 			# Push replaced text into queue and reprocess for pending replacements
 				# puts("Recursing on '#{outtext}' for #{storekey}")
 				process_full(storekey, mynick, outtext){ |from, to, msg|
