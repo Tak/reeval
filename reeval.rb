@@ -15,7 +15,7 @@ class REEval
 				'n' => Regexp::MULTILINE,
 				'x' => Regexp::EXTENDED
 				}
-		@NOMINAL_SIZE = 5
+		@NOMINAL_SIZE = 100
 	end # initialize
 
 	# Performs a complete message process run
