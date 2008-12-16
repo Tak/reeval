@@ -132,6 +132,7 @@ class REEvalShortBus < ShortBus
 			storekey = nil
 			index = 0
 			line = nil
+			channel = words[2]
 
 			# Strip intermittent trailing @ word
 			if(words.last == '@')
@@ -145,17 +146,17 @@ class REEvalShortBus < ShortBus
 			#puts("Processing message: #{words_eol.join('|')}")
 			
 			if(3<words_eol.size)
-				if(!words[2].matches?(/^#/) && (matches = words[3].match(/^:(#[-\w\d]+)$/)))
+				if(!words[2].match(/^#/) && (matches = words[3].match(/^:(#[-\w\d]+)$/)))
 				# Allow /msg Tak #sslug ledge: -1s/.*/I suck!
 					sometext = words_eol[4]
-					storekey = "#{mynick}|#{matches[1]}"
+					channel = matches[1]
 				else
 					sometext = words_eol[3].sub(/^:/,'')
-					storekey = "#{mynick}|#{words[2]}"	# Append channel name for (some) uniqueness
 				end
+				storekey = "#{mynick}|#{channel}"	# Append channel name for (some) uniqueness
 
 				@reeval.process_full(storekey, mynick, sometext){ |from, to, msg|
-					output_replacement(from, to, msg)
+					output_replacement(from, to, channel, msg)
 				}
 			end
 		rescue
@@ -170,11 +171,11 @@ class REEvalShortBus < ShortBus
 	# * tonick is the nick of the user whose text nick is replacing, 
 	# or nil for his own
 	# * sometext is the replacement text
-	def output_replacement(nick, tonick, sometext)
+	def output_replacement(nick, tonick, channel, sometext)
 		if(tonick)
-			command("SAY #{nick} thinks #{tonick} meant: #{sometext}")
+			command("MSG #{channel} #{nick} thinks #{tonick} meant: #{sometext}")
 		else
-			command("SAY #{nick} meant: #{sometext}")
+			command("MSG #{channel} #{nick} meant: #{sometext}")
 		end
 	end # output_replacement
 
