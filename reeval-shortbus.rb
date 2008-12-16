@@ -145,8 +145,14 @@ class REEvalShortBus < ShortBus
 			#puts("Processing message: #{words_eol.join('|')}")
 			
 			if(3<words_eol.size)
-				sometext = words_eol[3].sub(/^:/,'')
-				storekey = "#{mynick}|#{words[2]}"	# Append channel name for (some) uniqueness
+				if(!words[2].matches?(/^#/) && (matches = words[3].match(/^:(#[-\w\d]+)$/)))
+				# Allow /msg Tak #sslug ledge: -1s/.*/I suck!
+					sometext = words_eol[4]
+					storekey = "#{mynick}|#{matches[1]}"
+				else
+					sometext = words_eol[3].sub(/^:/,'')
+					storekey = "#{mynick}|#{words[2]}"	# Append channel name for (some) uniqueness
+				end
 
 				@reeval.process_full(storekey, mynick, sometext){ |from, to, msg|
 					output_replacement(from, to, msg)
