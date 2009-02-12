@@ -163,9 +163,13 @@ class REEvalShortBus < ShortBus
 				end
 				storekey = "#{mynick}|#{channel}"	# Append channel name for (some) uniqueness
 
-				@reeval.process_full(storekey, mynick, sometext){ |from, to, msg|
+				response = @reeval.process_full(storekey, mynick, sometext){ |from, to, msg|
 					output_replacement(from, to, channel, msg)
 				}
+
+				if(response)
+					command("MSG #{mynick} #{response}")
+				end
 			end
 		rescue
 			puts("#{caller.first}: #{$!}")

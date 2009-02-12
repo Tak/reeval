@@ -32,7 +32,7 @@ class REEval
 	# * mynick is the nick of the user who issued the message
 	# * sometext is the complete message
 	def process_full(storekey, mynick, sometext)
-		if(@ACTION.match(sometext)) then return; end
+		if(@ACTION.match(sometext)) then return nil; end
 
 		tonick = get_tonick(sometext)
 		index = get_index(sometext)
@@ -70,7 +70,11 @@ class REEval
 				}
 				# push_text(storekey, outtext)
 			end
+		elsif(index && 0 > index)
+			return 'Regex stored.'
 		end
+
+		return nil
 	end # process_full
 
 	# Processes a statement and returns its replacement, or nil
