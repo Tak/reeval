@@ -58,7 +58,7 @@ See?  Quick and easy.  Just a couple of things to remember about the regex:
        words and for adding unnecessary commas.
 2.1.7  Transpositions can be accomplished using the "tr/aeiou/AEIOU/" syntax.
        This also works with stochastic replacement, "tr/aeiou/AEIOU/50%".
-2.1.8  You can pipeline commands such as "s/command/string/ | tr/aeiou/AEIOU/".
+2.1.8  You can pipeline commands such as "s/command/string/ > tr/aeiou/AEIOU/".
 2.1.9  To simplify complex escaping of '/' you can use any non-alphanumeric 
        character as the delimiter fo the regular experssion, i.e., 
        "s!this!lol!".
