@@ -118,7 +118,7 @@ class REEval
 	# * regextext is a string representing 
 	# a |-delimited regex chain
 	def perform_substitution(plaintext, regextext)
-		outtext = regextext.split('|').inject(plaintext){ |input, expr|
+		outtext = regextext.split('>').inject(plaintext){ |input, expr|
 			#puts("Applying #{expr} to #{input}")
 			substitute(input.strip(), expr.strip())
 		}# pipeline expressions
@@ -312,8 +312,8 @@ if(__FILE__ == $0)
 			myto = nil
 			inputs = [
 				['blah', nil],
-				['s/blah/foo/ | s/foo/meh', 'meh'],
-				['tr/a-j/A-J/ | tr/k-z/K-Z', 'MEH'],
+				['s/blah/foo/ > s/foo/meh', 'meh'],
+				['tr/a-j/A-J/ > tr/k-z/K-Z', 'MEH'],
 				['s/./A/g', 'AAA'],
 				['s/a/!/gi', '!!!'],
 				['4tr/abhl/lhba', 'halb'],
@@ -336,8 +336,8 @@ if(__FILE__ == $0)
 			mynick = 'Tak'
 			myto = 'jcopenha'
 			inputs = [
-				['s/blah/foo/ | s/foo/meh', 'meh'],
-				['tr/a-j/A-J/ | tr/k-z/K-Z/', 'BLAH'],
+				['s/blah/foo/ > s/foo/meh', 'meh'],
+				['tr/a-j/A-J/ > tr/k-z/K-Z/', 'BLAH'],
 				['s/./A/g', 'AAAA'],
 				['s/a/!/gi', 'bl!h'],
 				['1tr/abhl/lhba', 'halb']
@@ -387,7 +387,7 @@ if(__FILE__ == $0)
 				['tr/aeiou/AEIOU/50%', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
 				['tr/a-zA-Z/A-Za-z/50%', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
 				['s/\w+/yaddle/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.'],
-				['s/\w+/yaddle/g | s/yaddle/eeerm/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.']
+				['s/\w+/yaddle/g > s/yaddle/eeerm/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.']
 			]
 			
 			assert_not_nil(@reeval)
@@ -405,7 +405,7 @@ if(__FILE__ == $0)
 			myto = nil
 			inputs = [
 				['The quick, brown fox jumps over the lazy dog.', nil],
-				['s/\w*o\w*/yaddle/g | tr/d/g', 'The quick, yaggle yaggle jumps yaggle the lazy yaggle.']
+				['s/\w*o\w*/yaddle/g > tr/d/g', 'The quick, yaggle yaggle jumps yaggle the lazy yaggle.']
 			]
 			
 			assert_not_nil(@reeval)
