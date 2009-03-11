@@ -31,12 +31,9 @@ if you next say "s/write/right/" the person running REEval will spit out
 "jcopenha meant to say: I think I'm right"
 
 See?  Quick and easy.  Just a couple of things to remember about the regex:
-2.1.0  The regex always applies to the last thing you said.  You can't change
-       something to said 3 hours ago.  Don't try.  That is until message 
-       buffering is implemented, then you will be able to change something
-       that was said at least a couple of lines ago.  You might even be able
-       to change things that haven't even been said yet if predictive 
-       replacement gets implemented. 
+2.1.0  The regex by default applies to the last thing you said.  You can change
+       that using buffered replacement or predictive replacement, discussed 
+       later.
 2.1.1  It is case sensitive.  "Write" will not match "write"  so be careful
        not to asshand your regex.  You can add a "/i" at the end if you want
        case insensitive matching.
@@ -62,6 +59,14 @@ See?  Quick and easy.  Just a couple of things to remember about the regex:
 2.1.9  To simplify complex escaping of '/' you can use any non-alphanumeric 
        character as the delimiter fo the regular experssion, i.e., 
        "s!this!lol!".
+2.1.10 Buffered replacement uses the format Ns/.../... and allows you to change
+       something that was said awhile ago.  The N is and zero based index for the
+       things that have been said.  So N=0 means the same thing as not putting an
+       N there.  And N=1 means one statement before the last statement, etc.
+2.1.11 Predictive replacement is closely related and uses the syntax -Ns/.../.../
+       and allows you to change things that haven't been said yet.  A -1s/.../.../
+       will seed a regex to apply to the very next statement.  You will get a 
+       private message saying your regex has been stored for later use.
 
 2.2  Rewriting what other people say
 
@@ -84,7 +89,11 @@ last thing they said.  So you best be quick.
 <beanfootage> damn.
 * ledge has kicked beanfootage (FAIL)
 
-See?  beanfootage was too slow.  He failed.
+See?  beanfootage was too slow.  He failed.  He should have used buffered
+replacement and done "JasonBox: 1s/pony/dick" and then the correct phrase
+"<Tak> beanfootage thinks JasonBox meant: I want a dick" would have been
+displayed.
+
 
 Once you've corrected something  Then someone can further correct the statement
 by addressing YOU with a regex
