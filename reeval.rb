@@ -10,6 +10,8 @@
 
 require 'fixedqueue'
 
+$KCODE = 'u'
+
 # Core regex replacement engine
 class REEval
 	def initialize()
