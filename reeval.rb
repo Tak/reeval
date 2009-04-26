@@ -21,6 +21,7 @@ class REEval
 		@TRRE = /^([^ :]+: *)?(-?\d*)?tr([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
 		@PARTIAL = /^([^ :]+: *)?(-?\d*)?(s|tr)([^\w])/
 		@ACTION = /^\001ACTION.*\001/
+		@RANGE = /(.)-(.)/
 		@REOPTIONS = {	'i' => Regexp::IGNORECASE,
 				'n' => Regexp::MULTILINE,
 				'x' => Regexp::EXTENDED
@@ -236,9 +237,33 @@ class REEval
 	# * from is the input pattern of the transposition
 	# * to is the output pattern of the transposition
 	# * prob is the probability as an integer percentage
+	# * returns the transposed string
 	def tr_rand(str, from, to, prob)
-		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? x.tr(from, to) : x) }
+		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? tr_unbustified(x, from, to) : x) }
 	end # tr_rand
+
+	# beanfootage's tr rewrite
+	# Transposes patterns in a string
+	# Necessary because transpositions like str.tr('œ','ß') gave very bad results
+	# * s is the source string
+	# * from is the input pattern of the transposition
+	# * to is the output pattern of the transposition
+	# * returns the transposed string
+	def tr_unbustified(s, from, to)
+		from = expand_range(from).split(//)
+		to = expand_range(to).split(//)
+		h = Hash.new
+		from.each_with_index{|x,i|
+			i = (i < to.length ? i : to.length - 1)
+			h[x] = to[i]
+		}
+
+		return s.split(//).collect{|x| h.key?(x) ? h[x] : x}.join('')
+	end # tr_unbustified
+
+	def expand_range(tr_pattern)
+		return tr_pattern.gsub(@RANGE) {|m| ($2 > $1) ? Range.new($1, $2).to_a() : Range.new($2, $1).to_a().reverse()}
+	end # expand_range
 
 	# Returns a new FixedQueue of the appropriate size
 	def create_fixedqueue()
@@ -368,7 +393,9 @@ if(__FILE__ == $0)
 				['The quick, brown fox jumps over the lazy dog.', nil],
 				['tr/aeiou/AEIOU/', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
 				['tr/a-zA-Z/A-Za-z/', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
-				['tr/a-zA-Z/*', '*** *****, ***** *** ***** **** *** **** ***.']
+				['tr/a-zA-Z/*', '*** *****, ***** *** ***** **** *** **** ***.'],
+				['tr/*/œ', 'œœœ œœœœœ, œœœœœ œœœ œœœœœ œœœœ œœœ œœœœ œœœ.'],
+				['tr/œ/ß', 'ßßß ßßßßß, ßßßßß ßßß ßßßßß ßßßß ßßß ßßßß ßßß.']
 			]
 			
 			assert_not_nil(@reeval)
