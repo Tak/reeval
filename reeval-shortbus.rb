@@ -185,7 +185,8 @@ class REEvalShortBus < ShortBus
 	# * sometext is the replacement text
 	def output_replacement(nick, tonick, channel, sometext)
 		if(tonick)
-			command("MSG #{channel} #{nick} thinks #{tonick} meant: #{sometext}")
+			nick = (nick == get_info('nick')) ? 'Me' : "#{nick} "
+			command("MSG #{channel} #{nick}thinks #{tonick} meant: #{sometext}")
 		else
 			command("MSG #{channel} #{nick} meant: #{sometext}")
 		end
