@@ -190,7 +190,7 @@ class REEvalShortBus < ShortBus
 			tonick = (tonick == mynick) ? 'I' : tonick
 			command("MSG #{channel} #{nick}thinks #{tonick} meant: #{sometext}")
 		else
-			nick = (nick == mynick) ? 'I' : "#{nick} "
+			nick = (nick == mynick) ? 'I' : nick
 			command("MSG #{channel} #{nick} meant: #{sometext}")
 		end
 	end # output_replacement
