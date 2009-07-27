@@ -101,7 +101,7 @@ class REEvalShortBus < ShortBus
 
 		begin
 			# Don't catch the outgoing 'Joe meant: blah'
-			if(/^([^ ]+ thinks )?[^ ]+ meant:/.match(words[1]) || (0 < @exclude.select{ |item| item == get_info('channel') }.size)) then return XCHAT_EAT_NONE; end
+			if(/^([^ ]+\s?thinks )?[^ ]+ meant:/.match(words[1]) || (0 < @exclude.select{ |item| item == get_info('channel') }.size)) then return XCHAT_EAT_NONE; end
 
 			words_eol = []
 			# Build an array of the format process_message expects
@@ -184,10 +184,13 @@ class REEvalShortBus < ShortBus
 	# or nil for his own
 	# * sometext is the replacement text
 	def output_replacement(nick, tonick, channel, sometext)
+		mynick = get_info('nick')
 		if(tonick)
-			nick = (nick == get_info('nick')) ? 'Me' : "#{nick} "
+			nick = (nick == mynick) ? 'Me' : "#{nick} "
+			tonick = (tonick == mynick) ? 'I' : tonick
 			command("MSG #{channel} #{nick}thinks #{tonick} meant: #{sometext}")
 		else
+			nick = (nick == mynick) ? 'I' : "#{nick} "
 			command("MSG #{channel} #{nick} meant: #{sometext}")
 		end
 	end # output_replacement
