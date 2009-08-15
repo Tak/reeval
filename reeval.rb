@@ -322,6 +322,18 @@ class REEval
 		end
 		return @lines[key].push(text)
 	end # push_text
+	
+	# Dumps the last 10 lines for key
+	def dump(key)
+		if(@lines[key])
+			return (1..10).collect{ |i|
+				@lines[key][-i]
+			}
+		else
+			puts("#{key} not found")
+		end
+		return []
+	end # dump
 end # REEval
 
 if(__FILE__ == $0)

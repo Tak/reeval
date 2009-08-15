@@ -21,6 +21,7 @@ class REEvalShortBus < ShortBus
 		@hooks = []
 		hook_command( 'REEVAL', XCHAT_PRI_NORM, method( :enable), '')
 		hook_command( 'REEXCLUDE', XCHAT_PRI_NORM, method( :exclude), '')
+		hook_command( 'REDUMP', XCHAT_PRI_NORM, method( :dump), '')
 		hook_server( 'Disconnected', XCHAT_PRI_NORM, method( :disable))
 		hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler))
 		puts('REEval loaded. Run /REEVAL to enable.')
@@ -59,6 +60,20 @@ class REEvalShortBus < ShortBus
 
 		return XCHAT_EAT_ALL
 	end # disable
+	
+	# Dumps the last 10 messages for words[1] (nick|channel)
+	# and messages them to words[2]
+	def dump(words, words_eol, data)
+		begin
+			words.shift()
+			if(words && 2 == words.size)
+				@reeval.dump(words[0]).each{ |line|
+					if(line) then command("MSG #{words[1]} #{line}"); end
+				}
+			end
+		rescue
+		end
+	end # dump
 
 	# Check for disconnect notice
 	def notice_handler(words, words_eol, data)
