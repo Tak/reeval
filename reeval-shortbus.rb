@@ -11,6 +11,8 @@
 require 'shortbus'
 require 'reeval'
 
+NICKRE = /^:([^!]*)!.*/
+
 # XChat plugin to interpret replacement regexen
 class REEvalShortBus < ShortBus
 	# Constructor
@@ -24,6 +26,7 @@ class REEvalShortBus < ShortBus
 		hook_command( 'REDUMP', XCHAT_PRI_NORM, method( :dump), '')
 		hook_server( 'Disconnected', XCHAT_PRI_NORM, method( :disable))
 		hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler))
+		hook_server( 'Quit', XCHAT_PRI_NORM, method( :quit_handler))
 		puts('REEval loaded. Run /REEVAL to enable.')
 	end # initialize
 
@@ -87,6 +90,17 @@ class REEvalShortBus < ShortBus
 
 		return XCHAT_EAT_NONE
 	end # notice_handler
+	
+	# Process quit messages
+	def quit_handler(words, words_eol, data)
+		begin
+			if (3 < words.size)
+				words[2] = get_info('channel')
+				process_message(words, words_eol, data)
+			end
+		rescue
+		end
+	end # quit_handler
 
 	def exclude(words, words_eol, data)
 		begin
@@ -150,7 +164,7 @@ class REEvalShortBus < ShortBus
 		begin
 			sometext = ''
 			outtext = ''
-			mynick = words[0].sub(/^:([^!]*)!.*/,'\1')
+			mynick = words[0].sub(NICKRE,'\1')
 			nick = nil
 			storekey = nil
 			index = 0
