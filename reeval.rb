@@ -17,11 +17,46 @@ class REEval
 	def initialize()
 		@regexes = {}
 		@lines = {}
+		
+		# Expression to match a message containing a regex
+		# [othernick: ][10]s/foo/bar/[ginx]
+		# [othernick: ][10]s/foo/bar/[50%]
+		# \1 captures othernick: 
+		# \2 captures message offset
+		# \3 captures expression delimiter (e.g. / for s/foo/bar/)
+		# \4 captures the match subexpression
+		# \5 captures the substitution subexpression
+		# \7 captures a trailing flag string or percentage
 		@RERE = /^\s*([^ :]+: *)?(-?\d*)?s([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
+		
+		# Expression to match a message containing a transposition
+		# [othernick: ][10]tr/az/za/[50%]
+		# \1 captures othernick: 
+		# \2 captures message offset
+		# \3 captures expression delimiter (e.g. / for tr/az/za/)
+		# \4 captures the match subexpression
+		# \5 captures the transposition subexpression
+		# \7 captures a trailing percentage
 		@TRRE = /^\s*([^ :]+: *)?(-?\d*)?tr([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
+		
+		# Expression to match a string containing a partial regex or transposition message
+		# [othernick: ][10]s/
+		# [othernick: ][10]tr/
+		# \1 captures othernick: 
+		# \2 captures message offset
+		# \3 captures substitution type
+		# \4 captures expression delimiter
 		@PARTIAL = /^\s*([^ :]+: *)?(-?\d*)?(s|tr)([^\w])/
+		
+		# Expression to match an action/emote message
 		@ACTION = /^\001ACTION.*\001/
+		
+		# Expression to match a character range
+		# \1 captures the beginning of the range
+		# \2 captures the end of the range
 		@RANGE = /(.)-(.)/
+		
+		# Map flag characters to Regexp options
 		@REOPTIONS = {	'i' => Regexp::IGNORECASE,
 				'n' => Regexp::MULTILINE,
 				'x' => Regexp::EXTENDED

@@ -11,6 +11,8 @@
 require 'shortbus'
 require 'reeval'
 
+# Regular expression to match an irc nick pattern (:nick[!user@host])
+# and capture the nick portion in \1
 NICKRE = /^:([^!]*)!.*/
 
 # XChat plugin to interpret replacement regexen
