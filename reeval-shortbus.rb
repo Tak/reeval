@@ -30,6 +30,7 @@ class REEvalShortBus < ShortBus
 		hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler))
 		hook_server( 'Quit', XCHAT_PRI_NORM, method( :quit_handler))
 		hook_server( 'Part', XCHAT_PRI_NORM, method( :process_message))
+		hook_server( 'Kick', XCHAT_PRI_NORM, method( :kick_handler))
 		puts('REEval loaded. Run /REEVAL to enable.')
 	end # initialize
 
@@ -104,6 +105,20 @@ class REEvalShortBus < ShortBus
 		rescue
 		end
 	end # quit_handler
+	
+	# Process kick messages
+	def kick_handler(words, words_eol, data)
+		begin
+			if(3 < words.size)
+				words.slice!(3)
+				3.upto(words_eol.size-1){ |i|
+					words_eol[i].sub!(/^[^\s]+\s+/, '')
+				}
+			end
+			return process_message(words, words_eol, data)
+		rescue
+		end
+	end # kick_handler
 
 	def exclude(words, words_eol, data)
 		begin
