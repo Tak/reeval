@@ -27,6 +27,7 @@ class REEvalShortBus < ShortBus
 		hook_server( 'Disconnected', XCHAT_PRI_NORM, method( :disable))
 		hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler))
 		hook_server( 'Quit', XCHAT_PRI_NORM, method( :quit_handler))
+		hook_server( 'Part', XCHAT_PRI_NORM, method( :process_message))
 		puts('REEval loaded. Run /REEVAL to enable.')
 	end # initialize
 
