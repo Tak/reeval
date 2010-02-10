@@ -14,6 +14,7 @@ require 'reeval'
 # Regular expression to match an irc nick pattern (:nick[!user@host])
 # and capture the nick portion in \1
 NICKRE = /^:([^!]*)!.*/
+TINYURL_REGEX = /^(:)?\[AKA\]/
 
 # XChat plugin to interpret replacement regexen
 class REEvalShortBus < ShortBus
@@ -207,6 +208,7 @@ class REEvalShortBus < ShortBus
 					channel = matches[1]
 				else
 					sometext = words_eol[3].sub(/^:/,'')
+					if(sometext.match(TINYURL_REGEX)) then return XCHAT_EAT_NONE; end
 				end
 				storekey = "#{mynick}|#{channel}"	# Append channel name for (some) uniqueness
 
