@@ -18,6 +18,8 @@ NICKRE = /^:([^!]*)!.*/
 # Match beanfootage's tinyurl output
 TINYURL_REGEX = /^(:)?\[AKA\]/
 
+REEVAL_MAX_MESSAGE_LENGTH = 1024
+
 # XChat plugin to interpret replacement regexen
 class REEvalShortBus < ShortBus
 	# Constructor
@@ -219,6 +221,7 @@ class REEvalShortBus < ShortBus
 				}
 
 				if(response)
+					response = REEvalShortBus.ellipsize(response)
 					command("MSG #{mynick} #{response}")
 				end
 			end
@@ -235,7 +238,9 @@ class REEvalShortBus < ShortBus
 	# or nil for his own
 	# * sometext is the replacement text
 	def output_replacement(nick, tonick, channel, sometext)
+		sometext = REEvalShortBus.ellipsize(sometext)
 		mynick = get_info('nick')
+		
 		if(tonick)
 			nick = (nick == mynick) ? 'Me' : "#{nick} "
 			tonick = (tonick == mynick) ? 'I' : tonick
@@ -245,6 +250,12 @@ class REEvalShortBus < ShortBus
 			command("MSG #{channel} #{nick} meant: #{sometext}")
 		end
 	end # output_replacement
+
+	def REEvalShortBus.ellipsize(str)
+		(REEVAL_MAX_MESSAGE_LENGTH < str.size) ?
+			"#{str.slice(0, REEVAL_MAX_MESSAGE_LENGTH)}..." :
+			str
+	end # ellipsize
 
 end # REEvalShortBus
 
