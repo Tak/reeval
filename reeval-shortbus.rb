@@ -25,6 +25,10 @@ class REEvalShortBus < ShortBus
 	# Constructor
 	def initialize()
 		super
+		
+		# Expression to match an action/emote message
+		@ACTION = /^\001ACTION(.*)\001/
+		
 		@reeval = REEval.new()
 		@exclude = []
 		@hooks = []
@@ -45,6 +49,7 @@ class REEvalShortBus < ShortBus
 			if([] == @hooks)
 				@hooks << hook_server('PRIVMSG', XCHAT_PRI_NORM, method(:process_message))
 				@hooks << hook_print('Your Message', XCHAT_PRI_NORM, method(:your_message))
+				@hooks << hook_print('Your Action', XCHAT_PRI_NORM, method(:your_action))
 				puts('REEval enabled.')
 			else
 				disable()
@@ -143,6 +148,16 @@ class REEvalShortBus < ShortBus
 		return XCHAT_EAT_ALL
 	end # exclude
 
+	# Processes outgoing actions
+	# (Really formats the data and hands it to process_message())
+	# * param words [Mynick, mymessage]
+	# * param data Unused
+	# * returns XCHAT_EAT_NONE
+	def your_action(words, data)
+		words[1] = "\001ACTION#{words[1]}\001"
+		return your_message(words, data)
+	end # your_action
+
 	# Processes outgoing messages 
 	# (Really formats the data and hands it to process_message())
 	# * param words [Mynick, mymessage]
@@ -159,7 +174,7 @@ class REEvalShortBus < ShortBus
 			# Build an array of the format process_message expects
 			newwords = [words[0], 'PRIVMSG', get_info('channel')] + (words - [words[0]]) 
 
-			#puts("Outgoing message: #{words.join(' ')}")
+			# puts("Outgoing message: #{words.join(' ')}")
 
 			# Populate words_eol
 			1.upto(newwords.size){ |i|
@@ -203,7 +218,7 @@ class REEvalShortBus < ShortBus
 			if(0 < @exclude.select{ |item| item == get_info('channel') }.size)
 				return XCHAT_EAT_NONE
 			end
-			#puts("Processing message: #{words_eol.join('|')}")
+			# puts("Processing message: #{words_eol.join('|')}")
 			
 			if(3<words_eol.size)
 				if(!words[2].match(/^#/) && (matches = words[3].match(/^:(#[-\w\d]+)$/)))
@@ -226,7 +241,7 @@ class REEvalShortBus < ShortBus
 				end
 			end
 		rescue
-			puts("#{caller.first}: #{$!}")
+			# puts("#{caller.first}: #{$!}")
 		end
 
 		return XCHAT_EAT_NONE
@@ -242,10 +257,12 @@ class REEvalShortBus < ShortBus
 		mynick = get_info('nick')
 		
 		if(tonick)
+			if(matches = @ACTION.match(sometext)); then sometext = "* #{tonick} #{matches[1]}"; end
 			nick = (nick == mynick) ? 'Me' : "#{nick} "
 			tonick = (tonick == mynick) ? 'I' : tonick
 			command("MSG #{channel} #{nick}thinks #{tonick} meant: #{sometext}")
 		else
+			if(matches = @ACTION.match(sometext)); then sometext = "* #{nick} #{matches[1]}"; end
 			nick = (nick == mynick) ? 'I' : nick
 			command("MSG #{channel} #{nick} meant: #{sometext}")
 		end

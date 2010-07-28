@@ -49,7 +49,7 @@ class REEval
 		@PARTIAL = /^\s*([^ :]+: *)?(-?\d*)?(s|tr)([^\w])/
 		
 		# Expression to match an action/emote message
-		@ACTION = /^\001ACTION.*\001/
+		@ACTION = /^\001ACTION(.*)\001/
 		
 		# Expression to match a character range
 		# \1 captures the beginning of the range
@@ -70,7 +70,10 @@ class REEval
 	# * mynick is the nick of the user who issued the message
 	# * sometext is the complete message
 	def process_full(storekey, mynick, sometext)
-		if(@ACTION.match(sometext)) then return nil; end
+		if(@ACTION.match(sometext))
+			push_text(storekey, sometext)
+			return nil
+		end
 
 		tonick = get_tonick(sometext)
 		index = get_index(sometext)
@@ -114,7 +117,7 @@ class REEval
 
 		return nil
 	end # process_full
-
+	
 	# Processes a statement and returns its replacement, or nil
 	# * storekey is the storage key for the message sender
 	# * key is the storage key for the user to whom the message is directed
@@ -130,7 +133,14 @@ class REEval
 			# Lookup old text and replace
 				oldtext = get_text(key, index)
 				# puts("Got #{oldtext} for #{key}")
-				if(oldtext) then return perform_substitution(oldtext, sometext); end
+				if(oldtext) 
+					if(matches = @ACTION.match(oldtext))
+						outtext = perform_substitution(matches[1], sometext)
+						return "\001ACTION#{outtext}\001"
+					else
+						return perform_substitution(oldtext, sometext)
+					end
+				end
 			elsif(0 > index)
 			# Store regex for future
 				set_regex(key, storekey, index.abs()-1, mynick, tonick, sometext.sub(@PARTIAL, '\1\3\4'))
@@ -392,7 +402,10 @@ if(__FILE__ == $0)
 				['s/a/!/gi', '!!!'],
 				['4tr/abhl/lhba', 'halb'],
 				['-1s/hal/HAL', nil],
-				['hallo', 'HALlo']
+				['hallo', 'HALlo'],
+				["\001ACTIONwat\001", nil],
+				['s/wat/duh/', "\001ACTIONduh\001"],
+				['s/duh/wat/', "\001ACTIONwat\001"]
 			]
 			
 			assert_not_nil(@reeval)
