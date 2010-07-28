@@ -57,7 +57,7 @@ See?  Quick and easy.  Just a couple of things to remember about the regex:
        This also works with stochastic replacement, "tr/aeiou/AEIOU/50%".
 2.1.8  You can pipeline commands such as "s/command/string/ > tr/aeiou/AEIOU/".
 2.1.9  To simplify complex escaping of '/' you can use any non-alphanumeric 
-       character as the delimiter fo the regular experssion, i.e., 
+       character as the delimiter of the regular expression, i.e., 
        "s!this!lol!".
 2.1.10 Buffered replacement uses the format Ns/.../... and allows you to change
        something that was said awhile ago.  The N is and zero based index for the
