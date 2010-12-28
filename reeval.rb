@@ -226,9 +226,22 @@ class REEval
 				}
 
 				subex = Regexp.compile(rematches[4], options)
-				if(foo = subex.match(origtext))
+				if(origmatches = subex.match(origtext))
 				# Only process replacements that actually match something
-					#puts(foo.inspect())
+					#puts(origmatches.inspect())
+					
+					# Replace fill expressions:
+					# a{\l1} in a substitution pattern will insert a sequence of a 
+					# whose length is the same as the matched \1
+					# (ab){\l2} will insert a sequence of ab that repeats once 
+					# for each character in the matched \1
+					replacement = rematches[5]
+					(1..(origmatches.size-1)).each{ |i|
+						numreplace = origmatches[i].size
+						# Replace single-char and parenthesized expressions separately for simplicity
+						replacement.gsub!(Regexp.compile("(([^)]))\\{\\\\l#{i}\\}"), '\2' * numreplace)
+						replacement.gsub!(Regexp.compile("(\\(([^)]+)\\))\\{\\\\l#{i}\\}"), '\2' * numreplace)
+					}
 
 					if(0 < (percent = get_percent(rematches[7])))
 					#Stochastic crap
@@ -237,12 +250,12 @@ class REEval
 						return origtext.gsub(subex){ |match|
 							blah = rand(101)
 							# puts("Randomly drew #{blah}: #{(blah < percent) ? '' : 'not '}replacing")
-							((blah < percent) ? match.sub(subex, rematches[5]) : match)
+							((blah < percent) ? match.sub(subex, replacement) : match)
 						}
 					else
 						return ((rematches[7] && rematches[7].include?('g')) ? 
-							origtext.gsub(subex, rematches[5]) : 
-							origtext.sub(subex, rematches[5]))
+							origtext.gsub(subex, replacement) : 
+							origtext.sub(subex, replacement))
 					end
 				end
 			elsif(trmatches = @TRRE.match(restring))
@@ -547,5 +560,32 @@ if(__FILE__ == $0)
 				}
 			}
 		end # test_queue
+
+		# Test fill expressions
+		def test_fillre()
+			trigger = false
+			storekey = 'Tak|#utter-failure'
+			mynick = 'Tak'
+			
+			inputs = [
+				['blah foo bar', 's/(\w+)/a{\l1}/', 'aaaa foo bar'],
+				['blah foo bar', 's/(\w+)/(ab){\l1}/', 'abababab foo bar'],
+				['blah foo bar', 's/(\w+)/(ab){\l1}/ > s/(\w+) (\w+)/\1 b{\l2}/', 'abababab bbb bar'],
+				['blah foo bar', 's/(\w+)/a{\l1}/ > s/(\w+) (\w+)/\1 (ba){\l2}/', 'aaaa bababa bar'],
+			]
+			
+			inputs.each{ |input|
+				trigger = false
+				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					assert(false)
+				}
+				
+				@reeval.process_full(storekey, mynick, input[1]){ |from, to, msg|
+					assert_equal(input[2], msg)
+					trigger = true
+				}
+				assert(trigger)
+			}
+		end # test_fillre
 	end # REEValTest
 end
