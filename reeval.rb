@@ -27,7 +27,7 @@ class REEval
 		# \4 captures the match subexpression
 		# \5 captures the substitution subexpression
 		# \7 captures a trailing flag string or percentage
-		@RERE = /^\s*([^ :]+: *)?(-?\d*)?s([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
+		@RERE = /^\s*([^ :]+: *)?(-?\d*)?[Ss]([^\w])([^\3]*)\3([^\3]*)(\3([ginx]+|[0-9]{2}\%|))$/
 		
 		# Expression to match a message containing a transposition
 		# [othernick: ][10]tr/az/za/[50%]
@@ -37,7 +37,7 @@ class REEval
 		# \4 captures the match subexpression
 		# \5 captures the transposition subexpression
 		# \7 captures a trailing percentage
-		@TRRE = /^\s*([^ :]+: *)?(-?\d*)?tr([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
+		@TRRE = /^\s*([^ :]+: *)?(-?\d*)?[Tt][Rr]([^\w])([^\3]*)\3([^\3]*)(\3([0-9]{2}\%)?)$/
 		
 		# Expression to match a string containing a partial regex or transposition message
 		# [othernick: ][10]s/
@@ -46,7 +46,7 @@ class REEval
 		# \2 captures message offset
 		# \3 captures substitution type
 		# \4 captures expression delimiter
-		@PARTIAL = /^\s*([^ :]+: *)?(-?\d*)?(s|tr)([^\w])/
+		@PARTIAL = /^\s*([^ :]+: *)?(-?\d*)?(S|s|tr|Tr|tR|TR)([^\w])/
 		
 		# Expression to match an action/emote message
 		@ACTION = /^\001ACTION(.*)\001/
@@ -437,8 +437,8 @@ if(__FILE__ == $0)
 			myto = 'jcopenha'
 			inputs = [
 				['s/blah/foo/ > s/foo/meh', 'meh'],
-				['tr/a-j/A-J/ > tr/k-z/K-Z/', 'BLAH'],
-				['s/./A/g', 'AAAA'],
+				['tr/a-j/A-J/ > Tr/k-z/K-Z/', 'BLAH'],
+				['S/./A/g', 'AAAA'],
 				['s/a/!/gi', 'bl!h'],
 				['1tr/abhl/lhba', 'halb']
 			]
@@ -465,7 +465,7 @@ if(__FILE__ == $0)
 			inputs = [
 				['The quick, brown fox jumps over the lazy dog.', nil],
 				['tr/aeiou/AEIOU/', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
-				['tr/a-zA-Z/A-Za-z/', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
+				['TR/a-zA-Z/A-Za-z/', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
 				['tr/a-zA-Z/*', '*** *****, ***** *** ***** **** *** **** ***.'],
 				['tr/*/œ', 'œœœ œœœœœ, œœœœœ œœœ œœœœœ œœœœ œœœ œœœœ œœœ.'],
 				['tr/œ/ß', 'ßßß ßßßßß, ßßßßß ßßß ßßßßß ßßßß ßßß ßßßß ßßß.']
@@ -486,10 +486,10 @@ if(__FILE__ == $0)
 			myto = nil
 			inputs = [
 				['The quick, brown fox jumps over the lazy dog.', nil],
-				['tr/aeiou/AEIOU/50%', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
-				['tr/a-zA-Z/A-Za-z/50%', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
+				['tR/aeiou/AEIOU/50%', 'ThE qUIck, brOwn fOx jUmps OvEr thE lAzy dOg.'],
+				['Tr/a-zA-Z/A-Za-z/50%', 'tHe QuiCK, BRoWN FoX JuMPS oVeR THe LaZY DoG.'],
 				['s/\w+/yaddle/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.'],
-				['s/\w+/yaddle/g > s/yaddle/eeerm/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.']
+				['S/\w+/yaddle/g > s/yaddle/eeerm/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.']
 			]
 			
 			assert_not_nil(@reeval)
@@ -507,7 +507,7 @@ if(__FILE__ == $0)
 			myto = nil
 			inputs = [
 				['The quick, brown fox jumps over the lazy dog.', nil],
-				['s/\w*o\w*/yaddle/g > tr/d/g', 'The quick, yaggle yaggle jumps yaggle the lazy yaggle.']
+				['s/\w*o\w*/yaddle/g > tR/d/g', 'The quick, yaggle yaggle jumps yaggle the lazy yaggle.']
 			]
 			
 			assert_not_nil(@reeval)
@@ -571,7 +571,7 @@ if(__FILE__ == $0)
 				['blah foo bar', 's/(\w+)/a{\l1}/', 'aaaa foo bar'],
 				['blah foo bar', 's/(\w+)/(ab){\l1}/', 'abababab foo bar'],
 				['blah foo bar', 's/(\w+)/(ab){\l1}/ > s/(\w+) (\w+)/\1 b{\l2}/', 'abababab bbb bar'],
-				['blah foo bar', 's/(\w+)/a{\l1}/ > s/(\w+) (\w+)/\1 (ba){\l2}/', 'aaaa bababa bar'],
+				['blah foo bar', 's/(\w+)/a{\l1}/ > S/(\w+) (\w+)/\1 (ba){\l2}/', 'aaaa bababa bar'],
 			]
 			
 			inputs.each{ |input|
