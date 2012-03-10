@@ -10,11 +10,13 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Default|AnyCPU' ">
     <OutputPath>.</OutputPath>
-    <MainFile>/home/lbar4/dev/reeval/reeval.rb</MainFile>
+    <MainFile>/home/levi/work/reeval/reeval.rb</MainFile>
   </PropertyGroup>
   <ItemGroup>
     <None Include="fixedqueue.rb" />
     <None Include="reeval.rb" />
     <None Include="reeval-shortbus.rb" />
+    <None Include="manuel.txt" />
+    <None Include="cicphash.rb" />
   </ItemGroup>
 </Project>

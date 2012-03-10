@@ -9,6 +9,7 @@
 # General Public License for more details.
 
 require 'fixedqueue'
+require 'cicphash'
 
 $KCODE = 'u'
 
@@ -16,7 +17,7 @@ $KCODE = 'u'
 class REEval
 	def initialize()
 		@regexes = {}
-		@lines = {}
+		@lines = CICPHash.new()
 		
 		# Expression to match a message containing a regex
 		# [othernick: ][10]s/foo/bar/[ginx]
@@ -420,21 +421,24 @@ if(__FILE__ == $0)
 				['s/wat/duh/', "\001ACTIONduh\001"],
 				['s/duh/wat/', "\001ACTIONwat\001"]
 			]
+			count = 0
 			
 			assert_not_nil(@reeval)
 
 			inputs.each{ |input|
 				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					count += 1
 					assert_equal([mynick, myto, input[1]], [from, to, msg])
 				}
 			}
+			assert_equal(inputs.select{|pair| pair[1]}.size, count)
 		end # test_self_replacement
 
 		def test_directed_replacement()
 			storekey = 'Tak|#utter-failure'
 			key = 'jcopenha|#utter-failure'
 			mynick = 'Tak'
-			myto = 'jcopenha'
+			myto = 'JCopenHa'
 			inputs = [
 				['s/blah/foo/ > s/foo/meh', 'meh'],
 				['tr/a-j/A-J/ > Tr/k-z/K-Z/', 'BLAH'],
@@ -442,6 +446,7 @@ if(__FILE__ == $0)
 				['s/a/!/gi', 'bl!h'],
 				['1tr/abhl/lhba', 'halb']
 			]
+			count = 0
 			
 			assert_not_nil(@reeval)
 
@@ -453,9 +458,11 @@ if(__FILE__ == $0)
 
 			inputs.each{ |input|
 				@reeval.process_full(storekey, mynick, "#{myto}: #{input[0]}"){ |from, to, msg|
+					count += 1
 					assert_equal([mynick, myto, input[1]], [from, to, msg])
 				}
 			}
+			assert_equal(inputs.select{|pair| pair[1]}.size, count)
 		end # test_directed_replacement
 
 		def test_transposition()
@@ -470,14 +477,17 @@ if(__FILE__ == $0)
 				['tr/*/œ', 'œœœ œœœœœ, œœœœœ œœœ œœœœœ œœœœ œœœ œœœœ œœœ.'],
 				['tr/œ/ß', 'ßßß ßßßßß, ßßßßß ßßß ßßßßß ßßßß ßßß ßßßß ßßß.']
 			]
+			count = 0
 			
 			assert_not_nil(@reeval)
 
 			inputs.each{ |input|
 				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					count += 1
 					assert_equal([mynick, myto, input[1]], [from, to, msg])
 				}
 			}
+			assert_equal(inputs.select{|pair| pair[1]}.size, count)
 		end # test_transposition
 
 		def test_stochastic()
@@ -491,14 +501,17 @@ if(__FILE__ == $0)
 				['s/\w+/yaddle/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.'],
 				['S/\w+/yaddle/g > s/yaddle/eeerm/50%', 'yaddle yaddle, yaddle yaddle yaddle yaddle yaddle yaddle yaddle.']
 			]
+			count = 0
 			
 			assert_not_nil(@reeval)
 
 			inputs.each{ |input|
 				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					count += 1
 					assert_not_equal([mynick, myto, input[1]], [from, to, msg])
 				}
 			}
+			assert_equal(inputs.select{|pair| pair[1]}.size, count)
 		end # test_stochastic
 
 		def test_pipeline()
@@ -509,14 +522,17 @@ if(__FILE__ == $0)
 				['The quick, brown fox jumps over the lazy dog.', nil],
 				['s/\w*o\w*/yaddle/g > tR/d/g', 'The quick, yaggle yaggle jumps yaggle the lazy yaggle.']
 			]
+			count = 0
 			
 			assert_not_nil(@reeval)
 
 			inputs.each{ |input|
 				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					count += 1
 					assert_equal([mynick, myto, input[1]], [from, to, msg])
 				}
 			}
+			assert_equal(inputs.select{|pair| pair[1]}.size, count)
 		end # test_pipeline
 
 		def test_queue()
@@ -573,6 +589,7 @@ if(__FILE__ == $0)
 				['blah foo bar', 's/(\w+)/(ab){\l1}/ > s/(\w+) (\w+)/\1 b{\l2}/', 'abababab bbb bar'],
 				['blah foo bar', 's/(\w+)/a{\l1}/ > S/(\w+) (\w+)/\1 (ba){\l2}/', 'aaaa bababa bar'],
 			]
+			count = 0
 			
 			inputs.each{ |input|
 				trigger = false
@@ -581,11 +598,13 @@ if(__FILE__ == $0)
 				}
 				
 				@reeval.process_full(storekey, mynick, input[1]){ |from, to, msg|
+					count += 1
 					assert_equal(input[2], msg)
 					trigger = true
 				}
 				assert(trigger)
 			}
+			assert_equal(inputs.select{|pair| pair[1]}.size, count)
 		end # test_fillre
 	end # REEValTest
 end
