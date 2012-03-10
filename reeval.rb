@@ -545,10 +545,10 @@ if(__FILE__ == $0)
 				['4tr/aeiou/AEIOU', 'fOO'],
 				['4tr/aeiou/AEIOU', 'bAr'],
 				['4tr/aeiou/AEIOU', 'bAz'],
+				['-9tr/aeiou/AEIOU', nil],
+				['-7tr/aeiou/AEIOU', nil],
 				['-5tr/aeiou/AEIOU', nil],
-				['-4tr/aeiou/AEIOU', nil],
 				['-3tr/aeiou/AEIOU', nil],
-				['-2tr/aeiou/AEIOU', nil],
 				['-1tr/aeiou/AEIOU', nil],
 				['blah', 'blAh'],
 				['meh', 'mEh'],
@@ -556,6 +556,7 @@ if(__FILE__ == $0)
 				['bar', 'bAr'],
 				['baz', 'bAz']
 			]
+			count = 0
 			
 			assert_not_nil(@reeval)
 
@@ -572,9 +573,11 @@ if(__FILE__ == $0)
 
 			inputs.each{ |input|
 				@reeval.process_full(storekey, mynick, input[0]){ |from, to, msg|
+					count += 1
 					assert_equal([mynick, myto, input[1]], [from, to, msg])
 				}
 			}
+			assert_equal(inputs.select{|pair| pair[1]}.size, count)
 		end # test_queue
 
 		# Test fill expressions
