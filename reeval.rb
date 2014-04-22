@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# encoding: utf-8
 
 # This program is free software; you can redistribute it and/or modify it under the terms of the GNU
 # General Public License as published by the Free Software Foundation; either version 3 of the
@@ -8,10 +9,8 @@
 # even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
 
-require 'fixedqueue'
-require 'cicphash'
-
-$KCODE = 'u'
+require_relative 'fixedqueue'
+require_relative 'cicphash'
 
 # Core regex replacement engine
 class REEval
@@ -298,27 +297,8 @@ class REEval
 	# * prob is the probability as an integer percentage
 	# * returns the transposed string
 	def tr_rand(str, from, to, prob)
-		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? tr_unbustified(x, from, to) : x) }
+		return str.split(//).inject(''){ |accum,x| accum + ((rand(101) < prob) ? x.tr(from, to) : x) }
 	end # tr_rand
-
-	# beanfootage's tr rewrite
-	# Transposes patterns in a string
-	# Necessary because transpositions like str.tr('œ','ß') gave very bad results
-	# * s is the source string
-	# * from is the input pattern of the transposition
-	# * to is the output pattern of the transposition
-	# * returns the transposed string
-	def tr_unbustified(s, from, to)
-		from = expand_range(from).split(//)
-		to = expand_range(to).split(//)
-		h = Hash.new
-		from.each_with_index{|x,i|
-			i = (i < to.length ? i : to.length - 1)
-			h[x] = to[i]
-		}
-
-		return s.split(//).collect{|x| h.key?(x) ? h[x] : x}.join('')
-	end # tr_unbustified
 
 	def expand_range(tr_pattern)
 		return tr_pattern.gsub(@RANGE) {|m| ($2 > $1) ? Range.new($1, $2).to_a() : Range.new($2, $1).to_a().reverse()}

@@ -8,8 +8,8 @@
 # even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
 
-require 'shortbus'
-require 'reeval'
+require_relative 'shortbus'
+require_relative 'reeval'
 
 # Regular expression to match an irc nick pattern (:nick[!user@host])
 # and capture the nick portion in \1
