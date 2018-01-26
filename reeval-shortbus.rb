@@ -22,261 +22,261 @@ REEVAL_MAX_MESSAGE_LENGTH = 1024
 
 # XChat plugin to interpret replacement regexen
 class REEvalShortBus < ShortBus
-	# Constructor
-	def initialize()
-		super
-		
-		# Expression to match an action/emote message
-		@ACTION = /^\001ACTION(.*)\001/
-		
-		@reeval = REEval.new()
-		@exclude = []
-		@hooks = []
-		hook_command( 'REEVAL', XCHAT_PRI_NORM, method( :enable), '')
-		hook_command( 'REEXCLUDE', XCHAT_PRI_NORM, method( :exclude), '')
-		hook_command( 'REDUMP', XCHAT_PRI_NORM, method( :dump), '')
-		hook_server( 'Disconnected', XCHAT_PRI_NORM, method( :disable))
-		hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler))
-		hook_server( 'Quit', XCHAT_PRI_NORM, method( :quit_handler))
-		hook_server( 'Part', XCHAT_PRI_NORM, method( :process_message))
-		hook_server( 'Kick', XCHAT_PRI_NORM, method( :kick_handler))
-		puts('REEval loaded. Run /REEVAL to enable.')
-	end # initialize
+  # Constructor
+  def initialize()
+    super
 
-	# Enables the plugin
-	def enable(words, words_eol, data)
-		begin
-			if([] == @hooks)
-				@hooks << hook_server('PRIVMSG', XCHAT_PRI_NORM, method(:process_message))
-				@hooks << hook_print('Your Message', XCHAT_PRI_NORM, method(:your_message))
-				@hooks << hook_print('Your Action', XCHAT_PRI_NORM, method(:your_action))
-				puts('REEval enabled.')
-			else
-				disable()
-			end
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
+    # Expression to match an action/emote message
+    @ACTION = /^\001ACTION(.*)\001/
 
-		return XCHAT_EAT_ALL
-	end # enable
+    @reeval = REEval.new()
+    @exclude = []
+    @hooks = []
+    hook_command( 'REEVAL', XCHAT_PRI_NORM, method( :enable), '')
+    hook_command( 'REEXCLUDE', XCHAT_PRI_NORM, method( :exclude), '')
+    hook_command( 'REDUMP', XCHAT_PRI_NORM, method( :dump), '')
+    hook_server( 'Disconnected', XCHAT_PRI_NORM, method( :disable))
+    hook_server( 'Notice', XCHAT_PRI_NORM, method( :notice_handler))
+    hook_server( 'Quit', XCHAT_PRI_NORM, method( :quit_handler))
+    hook_server( 'Part', XCHAT_PRI_NORM, method( :process_message))
+    hook_server( 'Kick', XCHAT_PRI_NORM, method( :kick_handler))
+    puts('REEval loaded. Run /REEVAL to enable.')
+  end # initialize
 
-	# Disables the plugin
-	def disable(words=nil, words_eol=nil, data=nil)
-		begin
-			if([] == @hooks)
-				puts('REEval already disabled.')
-			else
-				@hooks.each{ |hook| unhook(hook) }
-				@hooks = []
-				puts('REEval disabled.')
-			end
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
+  # Enables the plugin
+  def enable(words, words_eol, data)
+    begin
+      if([] == @hooks)
+        @hooks << hook_server('PRIVMSG', XCHAT_PRI_NORM, method(:process_message))
+        @hooks << hook_print('Your Message', XCHAT_PRI_NORM, method(:your_message))
+        @hooks << hook_print('Your Action', XCHAT_PRI_NORM, method(:your_action))
+        puts('REEval enabled.')
+      else
+        disable()
+      end
+    rescue
+      # puts("#{caller.first}: #{$!}")
+    end
 
-		return XCHAT_EAT_ALL
-	end # disable
-	
-	# Dumps the last 10 messages for words[1] (nick|channel)
-	# and messages them to words[2]
-	def dump(words, words_eol, data)
-		begin
-			words.shift()
-			if(words && 2 == words.size)
-				@reeval.dump(words[0]).each{ |line|
-					if(line) then command("MSG #{words[1]} #{line}"); end
-				}
-			end
-		rescue
-		end
-	end # dump
+    return XCHAT_EAT_ALL
+  end # enable
 
-	# Check for disconnect notice
-	def notice_handler(words, words_eol, data)
-		begin
-			if(words_eol[0].match(/(^Disconnected|Lost connection to server)/))
-				disable()
-			end
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
+  # Disables the plugin
+  def disable(words=nil, words_eol=nil, data=nil)
+    begin
+      if([] == @hooks)
+        puts('REEval already disabled.')
+      else
+        @hooks.each{ |hook| unhook(hook) }
+        @hooks = []
+        puts('REEval disabled.')
+      end
+    rescue
+      # puts("#{caller.first}: #{$!}")
+    end
 
-		return XCHAT_EAT_NONE
-	end # notice_handler
-	
-	# Process quit messages
-	def quit_handler(words, words_eol, data)
-		begin
-			if (3 < words.size)
-				words[2] = get_info('channel')
-				process_message(words, words_eol, data)
-			end
-		rescue
-		end
-	end # quit_handler
-	
-	# Process kick messages
-	def kick_handler(words, words_eol, data)
-		begin
-			if(3 < words.size)
-				words.slice!(3)
-				3.upto(words_eol.size-1){ |i|
-					words_eol[i].sub!(/^[^\s]+\s+/, '')
-				}
-			end
-			return process_message(words, words_eol, data)
-		rescue
-		end
-	end # kick_handler
+    return XCHAT_EAT_ALL
+  end # disable
 
-	def exclude(words, words_eol, data)
-		begin
-			1.upto(words.size-1){ |i|
-				if(0 == @exclude.select{ |item| item == words[i] }.size)
-					@exclude << words[i]
-					puts("Excluding #{words[i]}")
-				else
-					@exclude -= [words[i]]
-					puts("Unexcluding #{words[i]}")
-				end
-			}
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
+  # Dumps the last 10 messages for words[1] (nick|channel)
+  # and messages them to words[2]
+  def dump(words, words_eol, data)
+    begin
+      words.shift()
+      if(words && 2 == words.size)
+        @reeval.dump(words[0]).each{ |line|
+          if(line) then command("MSG #{words[1]} #{line}"); end
+        }
+      end
+    rescue
+    end
+  end # dump
 
-		return XCHAT_EAT_ALL
-	end # exclude
+  # Check for disconnect notice
+  def notice_handler(words, words_eol, data)
+    begin
+      if(words_eol[0].match(/(^Disconnected|Lost connection to server)/))
+        disable()
+      end
+    rescue
+      # puts("#{caller.first}: #{$!}")
+    end
 
-	# Processes outgoing actions
-	# (Really formats the data and hands it to process_message())
-	# * param words [Mynick, mymessage]
-	# * param data Unused
-	# * returns XCHAT_EAT_NONE
-	def your_action(words, data)
-		words[1] = "\001ACTION#{words[1]}\001"
-		return your_message(words, data)
-	end # your_action
+    return XCHAT_EAT_NONE
+  end # notice_handler
 
-	# Processes outgoing messages 
-	# (Really formats the data and hands it to process_message())
-	# * param words [Mynick, mymessage]
-	# * param data Unused
-	# * returns XCHAT_EAT_NONE
-	def your_message(words, data)
-		rv = XCHAT_EAT_NONE
+  # Process quit messages
+  def quit_handler(words, words_eol, data)
+    begin
+      if (3 < words.size)
+        words[2] = get_info('channel')
+        process_message(words, words_eol, data)
+      end
+    rescue
+    end
+  end # quit_handler
 
-		begin
-			# Don't catch the outgoing 'Joe meant: blah'
-			if(/^([^ ]+\s?thinks )?[^ ]+ meant:/.match(words[1]) || (0 < @exclude.select{ |item| item == get_info('channel') }.size)) then return XCHAT_EAT_NONE; end
+  # Process kick messages
+  def kick_handler(words, words_eol, data)
+    begin
+      if(3 < words.size)
+        words.slice!(3)
+        3.upto(words_eol.size-1){ |i|
+          words_eol[i].sub!(/^[^\s]+\s+/, '')
+        }
+      end
+      return process_message(words, words_eol, data)
+    rescue
+    end
+  end # kick_handler
 
-			words_eol = []
-			# Build an array of the format process_message expects
-			newwords = [words[0], 'PRIVMSG', get_info('channel')] + (words - [words[0]]) 
+  def exclude(words, words_eol, data)
+    begin
+      1.upto(words.size-1){ |i|
+        if(0 == @exclude.select{ |item| item == words[i] }.size)
+          @exclude << words[i]
+          puts("Excluding #{words[i]}")
+        else
+          @exclude -= [words[i]]
+          puts("Unexcluding #{words[i]}")
+        end
+      }
+    rescue
+      # puts("#{caller.first}: #{$!}")
+    end
 
-			# puts("Outgoing message: #{words.join(' ')}")
+    return XCHAT_EAT_ALL
+  end # exclude
 
-			# Populate words_eol
-			1.upto(newwords.size){ |i|
-				words_eol << (i..newwords.size).inject(''){ |str, j|
-					"#{str}#{newwords[j-1]} "
-				}.strip()
-			}
+  # Processes outgoing actions
+  # (Really formats the data and hands it to process_message())
+  # * param words [Mynick, mymessage]
+  # * param data Unused
+  # * returns XCHAT_EAT_NONE
+  def your_action(words, data)
+    words[1] = "\001ACTION#{words[1]}\001"
+    return your_message(words, data)
+  end # your_action
 
-			rv = process_message(newwords, words_eol, data)
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
+  # Processes outgoing messages
+  # (Really formats the data and hands it to process_message())
+  # * param words [Mynick, mymessage]
+  # * param data Unused
+  # * returns XCHAT_EAT_NONE
+  def your_message(words, data)
+    rv = XCHAT_EAT_NONE
 
-		return rv
-	end # your_message
+    begin
+      # Don't catch the outgoing 'Joe meant: blah'
+      if(/^([^ ]+\s?thinks )?[^ ]+ meant:/.match(words[1]) || (0 < @exclude.select{ |item| item == get_info('channel') }.size)) then return XCHAT_EAT_NONE; end
 
-	# Processes an incoming server message
-	# * words[0] -> ':' + user that sent the text
-	# * words[1] -> PRIVMSG
-	# * words[2] -> channel
-	# * words[3..(words.size-1)] -> ':' + text
-	# * words_eol is the joining of each array of words[i..words.size] 
-	# * (e.g. ["all the words", "the words", "words"]
-	def process_message(words, words_eol, data)
-		begin
-			sometext = ''
-			outtext = ''
-			mynick = words[0].sub(NICKRE,'\1')
-			nick = nil
-			storekey = nil
-			index = 0
-			line = nil
-			channel = words[2]
+      words_eol = []
+      # Build an array of the format process_message expects
+      newwords = [words[0], 'PRIVMSG', get_info('channel')] + (words - [words[0]])
 
-			# Strip intermittent trailing @ word
-			if(words.last == '@')
-				words.pop()
-				words_eol.collect!{ |w| w.gsub(/\s+@$/,'') }
-			end
+      # puts("Outgoing message: #{words.join(' ')}")
 
-			if(0 < @exclude.select{ |item| item == get_info('channel') }.size)
-				return XCHAT_EAT_NONE
-			end
-			# puts("Processing message: #{words_eol.join('|')}")
-			
-			if(3<words_eol.size)
-				if(!words[2].match(/^#/) && (matches = words[3].match(/^:(#[-\w\d]+)$/)))
-				# Allow /msg Tak #sslug ledge: -1s/.*/I suck!
-					sometext = words_eol[4]
-					channel = matches[1]
-				else
-					sometext = words_eol[3].sub(/^:/,'')
-					if(sometext.match(TINYURL_REGEX)) then return XCHAT_EAT_NONE; end
-				end
-				storekey = "#{mynick}|#{channel}"	# Append channel name for (some) uniqueness
+      # Populate words_eol
+      1.upto(newwords.size){ |i|
+        words_eol << (i..newwords.size).inject(''){ |str, j|
+          "#{str}#{newwords[j-1]} "
+        }.strip()
+      }
 
-				response = @reeval.process_full(storekey, mynick, sometext){ |from, to, msg|
-					output_replacement(from, to, channel, msg)
-				}
+      rv = process_message(newwords, words_eol, data)
+    rescue
+      # puts("#{caller.first}: #{$!}")
+    end
 
-				if(response)
-					response = REEvalShortBus.ellipsize(response)
-					command("MSG #{mynick} #{response}")
-				end
-			end
-		rescue
-			# puts("#{caller.first}: #{$!}")
-		end
+    return rv
+  end # your_message
 
-		return XCHAT_EAT_NONE
-	end # process_message
+  # Processes an incoming server message
+  # * words[0] -> ':' + user that sent the text
+  # * words[1] -> PRIVMSG
+  # * words[2] -> channel
+  # * words[3..(words.size-1)] -> ':' + text
+  # * words_eol is the joining of each array of words[i..words.size]
+  # * (e.g. ["all the words", "the words", "words"]
+  def process_message(words, words_eol, data)
+    begin
+      sometext = ''
+      outtext = ''
+      mynick = words[0].sub(NICKRE,'\1')
+      nick = nil
+      storekey = nil
+      index = 0
+      line = nil
+      channel = words[2]
 
-	# Sends a replacement message
-	# * nick is the nick of the user who issued the replacement command
-	# * tonick is the nick of the user whose text nick is replacing, 
-	# or nil for his own
-	# * sometext is the replacement text
-	def output_replacement(nick, tonick, channel, sometext)
-		sometext = REEvalShortBus.ellipsize(sometext)
-		mynick = get_info('nick')
-		
-		if(tonick)
-			if(matches = @ACTION.match(sometext)); then sometext = "* #{tonick} #{matches[1]}"; end
-			nick = (nick == mynick) ? 'Me' : "#{nick} "
-			tonick = (tonick == mynick) ? 'I' : tonick
-			command("MSG #{channel} #{nick}thinks #{tonick} meant: #{sometext}")
-		else
-			if(matches = @ACTION.match(sometext)); then sometext = "* #{nick} #{matches[1]}"; end
-			nick = (nick == mynick) ? 'I' : nick
-			command("MSG #{channel} #{nick} meant: #{sometext}")
-		end
-	end # output_replacement
+      # Strip intermittent trailing @ word
+      if(words.last == '@')
+        words.pop()
+        words_eol.collect!{ |w| w.gsub(/\s+@$/,'') }
+      end
 
-	def REEvalShortBus.ellipsize(str)
-		(REEVAL_MAX_MESSAGE_LENGTH < str.size) ?
-			"#{str.slice(0, REEVAL_MAX_MESSAGE_LENGTH)}..." :
-			str
-	end # ellipsize
+      if(0 < @exclude.select{ |item| item == get_info('channel') }.size)
+        return XCHAT_EAT_NONE
+      end
+      # puts("Processing message: #{words_eol.join('|')}")
+
+      if(3<words_eol.size)
+        if(!words[2].match(/^#/) && (matches = words[3].match(/^:(#[-\w\d]+)$/)))
+        # Allow /msg Tak #sslug ledge: -1s/.*/I suck!
+          sometext = words_eol[4]
+          channel = matches[1]
+        else
+          sometext = words_eol[3].sub(/^:/,'')
+          if(sometext.match(TINYURL_REGEX)) then return XCHAT_EAT_NONE; end
+        end
+        storekey = "#{mynick}|#{channel}"	# Append channel name for (some) uniqueness
+
+        response = @reeval.process_full(storekey, mynick, sometext){ |from, to, msg|
+          output_replacement(from, to, channel, msg)
+        }
+
+        if(response)
+          response = REEvalShortBus.ellipsize(response)
+          command("MSG #{mynick} #{response}")
+        end
+      end
+    rescue
+      # puts("#{caller.first}: #{$!}")
+    end
+
+    return XCHAT_EAT_NONE
+  end # process_message
+
+  # Sends a replacement message
+  # * nick is the nick of the user who issued the replacement command
+  # * tonick is the nick of the user whose text nick is replacing,
+  # or nil for his own
+  # * sometext is the replacement text
+  def output_replacement(nick, tonick, channel, sometext)
+    sometext = REEvalShortBus.ellipsize(sometext)
+    mynick = get_info('nick')
+
+    if(tonick)
+      if(matches = @ACTION.match(sometext)); then sometext = "* #{tonick} #{matches[1]}"; end
+      nick = (nick == mynick) ? 'Me' : "#{nick} "
+      tonick = (tonick == mynick) ? 'I' : tonick
+      command("MSG #{channel} #{nick}thinks #{tonick} meant: #{sometext}")
+    else
+      if(matches = @ACTION.match(sometext)); then sometext = "* #{nick} #{matches[1]}"; end
+      nick = (nick == mynick) ? 'I' : nick
+      command("MSG #{channel} #{nick} meant: #{sometext}")
+    end
+  end # output_replacement
+
+  def REEvalShortBus.ellipsize(str)
+    (REEVAL_MAX_MESSAGE_LENGTH < str.size) ?
+      "#{str.slice(0, REEVAL_MAX_MESSAGE_LENGTH)}..." :
+      str
+  end # ellipsize
 
 end # REEvalShortBus
 
 if(__FILE__ == $0)
-	blah = REEvalShortBus.new()
-	blah.run()
+  blah = REEvalShortBus.new()
+  blah.run()
 end
