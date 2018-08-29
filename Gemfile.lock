@@ -1,12 +1,12 @@
 GIT
-  remote: https://github.com/https://github.com/Tak/fixedqueue
+  remote: https://github.com/Tak/fixedqueue
   revision: d3574e561cec2a08c705d753c9249196bc803761
   branch: master
   specs:
     fixedqueue (0.1.0)
 
 GIT
-  remote: https://github.com/https://github.com/Tak/shortbus
+  remote: https://github.com/Tak/shortbus
   revision: 8e3ca4dc806eca45793bddf528f0795e496982a9
   branch: master
   specs:
