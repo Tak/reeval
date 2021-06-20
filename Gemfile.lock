@@ -17,6 +17,7 @@ PATH
   remote: .
   specs:
     reeval (0.1.0)
+      fixedqueue
 
 GEM
   remote: https://rubygems.org/
