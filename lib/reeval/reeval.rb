@@ -318,17 +318,21 @@ module REEval
     # * to is the nick of the user whose message will be replaced
     # * regex is the message containing the replacement, sans index
     def set_regex(key, storekey, index, from, to, regex)
-      if(!@regexes[key])
+      unless (keyedregex = @regexes[key])
         @regexes[key] = create_fixedqueue()
       end
 
       # puts("Storing regex #{regex} for #{key}(#{index})")
       store = [storekey, from, to, regex]
 
-      if(@regexes[key][index])
-        return @regexes[key][index] << store
+      while index > keyedregex.size
+        keyedregex.push([])
+      end
+
+      if (index == keyedregex.size)
+        keyedregex.push([store])
       else
-        return @regexes[key][index] = [store]
+        keyedregex[index] << store
       end
     end # set_regex
 
@@ -346,10 +350,21 @@ module REEval
     # * index is the index of the message we want
     def get_text(key, index)
       # puts("Getting #{key}[#{index}](#{@NOMINAL_SIZE-index})")
-      if(!@lines[key])
+      if (keyedlines = @lines[key])
+        queue_index = if index < 0
+                        return nil if index.abs > keyedlines.size
+
+                        index + 1
+                      else
+                        return nil if index >= keyedlines.size
+
+                        -index - 1
+                      end
+        keyedlines[queue_index]
+      else
         @lines[key] = create_fixedqueue()
+        nil
       end
-      return @lines[key][@NOMINAL_SIZE-index]
     end # get_text
 
     # Pushes a message into a user's queue
