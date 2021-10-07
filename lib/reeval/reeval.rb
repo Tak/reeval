@@ -64,6 +64,32 @@ module REEval
       @NOMINAL_SIZE = 100
     end # initialize
 
+    def process_reply(storekey, mynick, sometext, tonick, totext)
+      if(@ACTION.match(sometext))
+        push_text(storekey, sometext)
+        return nil
+      end
+
+      # Plain text message - push into the queue
+      # puts("Storing '#{sometext}' for #{storekey}")
+      push_text(storekey, sometext)
+
+      outtext = process_text(sometext, totext)
+      return nil unless outtext
+
+      # Replacement has occurred
+      yield(mynick, tonick, outtext) if outtext != sometext
+
+      if(!@RERE.match(outtext) && !@TRRE.match(outtext) && !@PARTIAL.match(outtext))
+        # Push replaced text into queue and reprocess for pending replacements
+        # puts("Recursing on '#{outtext}' for #{storekey}")
+        process_full(storekey, mynick, outtext){ |from, to, msg|
+          yield(from, to, msg)
+        }
+        # push_text(storekey, outtext)
+      end
+    end
+
     # Performs a complete message process run
     # * storekey is the storage key of the user who issued the message
     # (nick|channel)
@@ -118,6 +144,15 @@ module REEval
       return nil
     end # process_full
 
+    def process_text(sometext, oldtext)
+      if(matches = @ACTION.match(oldtext))
+        outtext = perform_substitution(matches[1], sometext)
+        return "\001ACTION#{outtext}\001"
+      else
+        return perform_substitution(oldtext, sometext)
+      end
+    end
+
     # Processes a statement and returns its replacement, or nil
     # * storekey is the storage key for the message sender
     # * key is the storage key for the user to whom the message is directed
@@ -130,17 +165,10 @@ module REEval
       if(index)
       # Regex
         if(0 <= index)
-        # Lookup old text and replace
+          # Lookup old text and replace
           oldtext = get_text(key, index)
           # puts("Got #{oldtext} for #{key}")
-          if(oldtext)
-            if(matches = @ACTION.match(oldtext))
-              outtext = perform_substitution(matches[1], sometext)
-              return "\001ACTION#{outtext}\001"
-            else
-              return perform_substitution(oldtext, sometext)
-            end
-          end
+          return process_text(sometext, oldtext) if oldtext
         elsif(0 > index)
         # Store regex for future
           set_regex(key, storekey, index.abs()-1, mynick, tonick, sometext.sub(@PARTIAL, '\1\3\4'))
